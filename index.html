@@ -245,7 +245,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
    </div>
    <p class="note" id="calibrationHelp">
     Označi štiri točke na zunanji meji dvojnega obroča:
-    zgoraj pri 20, desno pri 6, spodaj pri 3 in levo pri 11.
+    zgoraj pri 20, desno pri 6, spodaj pri 3 in levo pri 11. Nato tapni sredino BULL-a za preverjanje.
    </p>
    <div class="actions">
     <button onclick="captureBaseline()">② PRAZNA TARČA — SHRANI OSNOVO</button>
@@ -266,7 +266,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
     <div id="candidatePanel" hidden>
      <p class="note">
       Na zamrznjeni sliki tapni <b>dejansko mesto vboda</b>.
-      Gumbi spodaj ponujajo samo možne končne točke spremenjenega območja.
+      Če so prikazani gumbi, označujejo konce spremenjenega območja.
      </p>
      <div class="actions" id="endpointButtons"></div>
      <p id="selectedHit" aria-live="polite"></p>
@@ -352,6 +352,10 @@ function showScreen(id) {
 }
 
 function showTab(tab) {
+ if (tab !== 'camera' && !$('cameraTab').hidden) {
+  resetStability();
+  manualRequested=false;
+ }
  ['play','camera','stats'].forEach(name => {
   $(name + 'Tab').hidden = name !== tab;
  });
@@ -466,6 +470,10 @@ function addDart(n,m) {
  let d;
  try { d = dart(n,m); } catch(e) { toast(e.message); return false; }
 
+ if (pending && editIndex === null) {
+  toast('Na zavihku Kamera najprej dodaj ali zavrni odprti predlog.');
+  return false;
+ }
  if (editIndex !== null) {
   game.throws[editIndex] = d;
   const state = currentState();
@@ -795,7 +803,7 @@ function solve(matrix) {
 
 function homography(points) {
  const target=[[0,-170],[170,0],[0,170],[-170,0]],rows=[];
- points.forEach(([x,y],i)=>{
+ points.slice(0,4).forEach(([x,y],i)=>{
   const [u,v]=target[i];
   rows.push(
    [x,y,1,0,0,0,-u*x,-u*y,u],
@@ -839,7 +847,7 @@ let stream=null,cameraFacing='environment',cameraSession=0;
 let frameWidth=0,frameHeight=0;
 let calibration=null,calibrationPoints=null,savedCalibration=null;
 let roi=null,roiCount=0;
-let baseline=null,previousGray=null,stableFrames=0;
+let baseline=null,previousGray=null,stableReference=null,stableFrames=0;
 let frozen=null,pending=null;
 let monitoring=false,waitingForEmpty=false,marksVisible=true;
 let busy=false,lastScanTime=0,manualRequested=false;
@@ -859,10 +867,15 @@ function setDetectionMessage(title,text) {
  $('detectText').textContent=text;
 }
 
+function resetStability() {
+ previousGray=null;
+ stableReference=null;
+ stableFrames=0;
+}
+
 function invalidateFrames() {
  baseline=null;
- previousGray=null;
- stableFrames=0;
+ resetStability();
  frozen=null;
  pending=null;
  manualRequested=false;
@@ -929,7 +942,7 @@ async function startCamera() {
   $('cameraPlaceholder').hidden=true;
   $('cameraDot').classList.add('live');
   $('cameraStatus').textContent='Kamera deluje. Ob premiku telefona ponovi kalibracijo.';
-  setDetectionMessage('Kalibriraj tarčo.','Označi štiri točke na zunanji meji dvojnega obroča.');
+  setDetectionMessage('Kalibriraj tarčo.','Označi štiri točke na obroču in sredino BULL-a.');
 
   for (const track of stream.getVideoTracks()) {
    track.addEventListener('ended',()=>{
@@ -971,7 +984,7 @@ function stopCamera() {
  $('cancelCalibration').hidden=true;
  updateMonitorButton();
  $('calibrationHelp').textContent=
-  'Po vklopu kamere označi zunanjo mejo dvojnega obroča pri 20, 6, 3 in 11.';
+  'Označi zunanjo mejo dvojnega obroča pri 20, 6, 3 in 11, nato sredino BULL-a.';
  if (game && !game.winner) renderGame();
 }
 
@@ -1030,7 +1043,12 @@ function cancelCalibration() {
  $('calibrationHelp').textContent=calibration?
   'Prejšnja kalibracija je ohranjena. Shrani prazno tarčo.':
   'Kalibracija je preklicana. Za zaznavanje jo moraš ponoviti.';
- if (calibration) buildROI();
+ if (calibration) {
+  buildROI();
+  setDetectionMessage('Shrani prazno tarčo.','Prejšnja kalibracija je ohranjena.');
+ } else {
+  setDetectionMessage('Najprej kalibriraj tarčo.','Označi štiri točke na obroču in sredino BULL-a.');
+ }
  drawBoard();
 }
 
@@ -1060,6 +1078,7 @@ function buildROI() {
 function boardTap(event) {
  if (!stream || !frameWidth) return;
  const rect=$('boardCanvas').getBoundingClientRect();
+ if (!rect.width || !rect.height) return;
  const x=(event.clientX-rect.left)*frameWidth/rect.width;
  const y=(event.clientY-rect.top)*frameHeight/rect.height;
 
@@ -1068,11 +1087,16 @@ function boardTap(event) {
   if (calibrationPoints.length<4) {
    $('calibrationHelp').textContent=
     `Zdaj tapni ${calibrationLabels[calibrationPoints.length]} — zunanjo mejo dvojnega obroča na sredini polja.`;
+  } else if (calibrationPoints.length===4) {
+   $('calibrationHelp').textContent='Za preverjanje tapni sredino notranjega BULL-a.';
   } else {
    try {
     if (!validCalibration(calibrationPoints))
      throw Error('Točke niso veljavne. Označi jih v vrstnem redu 20 → 6 → 3 → 11.');
     const next=homography(calibrationPoints);
+    const bull=project(next,...calibrationPoints[4]);
+    if (Math.hypot(bull.x,bull.y)>5)
+     throw Error('Sredina odstopa za več kot 5 mm. Ponovi označevanje vseh petih točk.');
     const previous=calibration;
     calibration=next;
     buildROI();
@@ -1147,8 +1171,7 @@ function toggleMonitoring() {
   return;
  }
  if (!canObserve(true)) return;
- previousGray=null;
- stableFrames=0;
+ resetStability();
  monitoring=true;
  updateMonitorButton();
  setDetectionMessage('Spremljanje je vključeno.',
@@ -1157,8 +1180,7 @@ function toggleMonitoring() {
 
 function manualDetection() {
  if (!canObserve(true)) return;
- previousGray=null;
- stableFrames=0;
+ resetStability();
  manualRequested=true;
  setDetectionMessage('Čakam na umirjeno sliko.',
   'Ne premikaj telefona in umakni roko iz kadra.');
@@ -1253,28 +1275,18 @@ function componentsFrom(mask) {
 function inspectFrame(image,gray) {
  const diff=differenceMask(baseline,gray);
  if (diff.rawCount>roiCount*.12) {
+  manualRequested=false;
   setDetectionMessage('Preveč sprememb za predlog.',
    'Možni vzroki so roka, senca ali premik telefona. Če se je telefon premaknil, ponovi kalibracijo.');
   return false;
  }
- if (diff.changed<12) {
-  if (manualRequested) {
-   manualRequested=false;
-   setDetectionMessage('Ni dovolj jasne spremembe.',
-    'Če je puščica zgrešila ali odskočila, ročno vnesi MISS. Slabše vidno puščico vnesi ročno.');
-  }
-  return false;
- }
-
- const components=componentsFrom(diff.mask);
- if (!components.length) return false;
- const endpoints=[];
- for (const c of components.filter(c=>c.length>=10 && c.elongation>=3).slice(0,3)) {
-  for (const point of [c.first,c.last]) {
-   if (point && !endpoints.some(p=>Math.hypot(p.x-point.x,p.y-point.y)<8))
-    endpoints.push({...point});
-  }
- }
+ const components=diff.changed>=12 ? componentsFrom(diff.mask) : [];
+ const elongated=components.filter(c=>c.length>=10 && c.elongation>=3);
+ // Več podolgovatih območij lahko pomeni senco ali premik že vrženih puščic.
+ const proposal=elongated.length===1 && elongated[0].area>=diff.changed*.5
+  ? elongated[0] : null;
+ if (!proposal && !manualRequested) return false;
+ const endpoints=proposal ? [proposal.first,proposal.last] : [];
 
  pending={image,gray,components:components.slice(0,8),endpoints,selected:null};
  frozen=image;
@@ -1283,10 +1295,14 @@ function inspectFrame(image,gray) {
  $('selectedHit').textContent='Mesto vboda še ni izbrano.';
  $('acceptHit').disabled=true;
  $('endpointButtons').innerHTML=endpoints.map((_,i)=>
-  `<button class="secondary tiny" onclick="chooseEndpoint(${i})">MOŽNA KONICA ${i+1}</button>`
+  `<button class="secondary tiny" onclick="chooseEndpoint(${i})">KONEC OBMOČJA ${i+1}</button>`
  ).join('');
- setDetectionMessage('Sprememba je zaznana — preveri mesto vboda.',
-  'Označene točke so konci spremenjenih območij. Niso potrjene konice puščice.');
+ if (proposal) {
+  setDetectionMessage('Kandidat za nov met.','Na sliki označi dejansko mesto vboda in preveri zadetek.');
+ } else {
+  setDetectionMessage('Ročni pregled slike.',
+   'Če vidiš vbod nove puščice, ga označi. Zgrešen met ali odboj vnesi kot MISS v zavihku Igra.');
+ }
  renderGame();
  drawBoard();
  return true;
@@ -1294,7 +1310,7 @@ function inspectFrame(image,gray) {
 
 function chooseEndpoint(index) {
  const point=pending?.endpoints[index];
- if (point) selectPoint(point.x,point.y,'Izbrana možna konica — preveri na sliki');
+ if (point) selectPoint(point.x,point.y,'Izbran konec območja — preveri mesto vboda');
 }
 
 function selectPoint(x,y,source) {
@@ -1317,14 +1333,15 @@ function acceptDetection() {
  if (!pending?.selected || !game) return;
  const event=pending,hit=event.selected.hit;
  editIndex=null;
- if (!addDart(hit.n,hit.m)) return;
- baseline=event.gray;
  pending=null;
+ if (!addDart(hit.n,hit.m)) {
+  pending=event;
+  return;
+ }
+ baseline=event.gray;
  frozen=null;
- previousGray=null;
- stableFrames=0;
+ resetStability();
  $('candidatePanel').hidden=true;
- renderGame();
  drawBoard();
 
  if (game.throws.length>=3 || currentState().terminal) {
@@ -1343,8 +1360,7 @@ function discardDetection(acceptAsBaseline) {
  if (acceptAsBaseline) baseline=pending.gray;
  pending=null;
  frozen=null;
- previousGray=null;
- stableFrames=0;
+ resetStability();
  $('candidatePanel').hidden=true;
  renderGame();
  drawBoard();
@@ -1403,15 +1419,16 @@ function scanCamera() {
  try {
   const image=grabFrame(),gray=grayFrame(image);
   if (!previousGray) {
-   previousGray=gray;
-   stableFrames=0;
+   previousGray=stableReference=gray;
    return;
   }
-  const motion=changedFraction(previousGray,gray,18);
+  const moved=changedFraction(previousGray,gray,18)>.004 ||
+   changedFraction(stableReference,gray,18)>.004;
   previousGray=gray;
-  if (motion>.004) {
+  if (moved) {
+   stableReference=gray;
    stableFrames=0;
-   setDetectionMessage('Čekam na umirjeno sliko.',
+   setDetectionMessage('Čakam na umirjeno sliko.',
     'Umakni roko iz kadra. Telefon mora ostati pri miru.');
    return;
   }
@@ -1437,10 +1454,7 @@ function animationLoop(time) {
  requestAnimationFrame(animationLoop);
 }
 
-document.addEventListener('visibilitychange',()=>{
- previousGray=null;
- stableFrames=0;
-});
+document.addEventListener('visibilitychange',resetStability);
 
 renderPlayerInputs();
 try { $('resumeBtn').hidden=!localStorage.getItem(SAVE_KEY); } catch(e) {}
