@@ -4,281 +4,1447 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#101411">
-<title>DartVision V2 – test prepoznave</title>
+<title>DartVision – preverjanje zadetkov</title>
 <style>
-:root{--bg:#0d110f;--panel:#171e19;--panel2:#202a23;--line:#2d3a31;--text:#f2f5f2;--muted:#9aa89d;--green:#a6f06b;--green2:#6dbb39;--red:#ff7777;--gold:#f2c66d}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% -20%,#26382b 0,#0d110f 48%);color:var(--text);font:15px system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh}
-button,input,select{font:inherit}button{cursor:pointer;border:0;border-radius:12px;padding:12px 15px;font-weight:750;background:var(--green);color:#10170e}button:disabled{opacity:.35;cursor:not-allowed}.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line)}.danger{background:#492727;color:#ffdede}.tiny{padding:7px 10px;font-size:12px;border-radius:9px}
-header{max-width:1100px;margin:auto;padding:20px 18px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px}
-.brand{font-size:23px;font-weight:950;letter-spacing:1.5px}.brand span{color:var(--green)}.sub{color:var(--muted);font-size:11px;letter-spacing:2px}
-main{max-width:1100px;margin:auto;padding:8px 18px 36px}.screen{display:none}.screen.active{display:block}.panel{background:linear-gradient(145deg,#1b241e,#141a16);border:1px solid var(--line);border-radius:19px;padding:18px;box-shadow:0 12px 35px #0003;margin-bottom:14px}
-h1,h2,h3,p{margin-top:0}h1{font-size:clamp(27px,5vw,42px);margin-bottom:8px}h2{font-size:20px;margin-bottom:14px}h3{font-size:15px;margin-bottom:8px}.muted{color:var(--muted)}.eyebrow{color:var(--green);font-size:11px;font-weight:900;letter-spacing:1.8px;text-transform:uppercase}
-.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:7px;margin:12px 0}.field label{color:var(--muted);font-size:12px;font-weight:700}input,select{width:100%;background:#0f1511;color:var(--text);border:1px solid var(--line);border-radius:11px;padding:12px;outline:none}input:focus,select:focus{border-color:var(--green)}
-.player-inputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}.actions button{flex:1;min-width:130px}
-.scoreboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-bottom:14px}.player-card{background:#141b16;border:1px solid var(--line);border-radius:16px;padding:14px;position:relative}.player-card.current{border:1px solid var(--green);box-shadow:inset 0 0 0 1px #a6f06b33}.player-card .name{font-size:13px;color:var(--muted);font-weight:800}.score{font-size:42px;line-height:1.2;font-weight:950;letter-spacing:-2px;margin:5px 0}.player-card.current .score{color:var(--green)}.tag{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--green);font-weight:900}.mini{font-size:11px;color:var(--muted)}
-.tabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}.tab{background:var(--panel2);border:1px solid var(--line);color:var(--muted);padding:9px 13px}.tab.active{background:var(--green);color:#10170e;border-color:var(--green)}
-.dart-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.dart-box{background:#0f1511;border:1px solid var(--line);border-radius:13px;padding:10px;text-align:center}.dart-box b{display:block;font-size:23px;color:var(--green)}.dart-box small{color:var(--muted)}
-.pad{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px}.pad button{padding:11px 4px;background:#253129;color:var(--text);border:1px solid #35443a}.pad button:hover{border-color:var(--green)}.pad button.mult{background:#354b2c;color:#d9ffc0}.pad button.bull{background:#59451d;color:#ffe5a7}
-.current-entry{font-size:34px;font-weight:950;color:var(--green);text-align:center;padding:8px}.checkout{background:#172319;border:1px solid #405b38;border-radius:14px;padding:14px}.checkout strong{font-size:25px;color:var(--green)}.history-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);gap:12px}.history-row:last-child{border:0}
-.camera-frame{border:1px dashed #536657;background:#0b100d;border-radius:16px;min-height:230px;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}.camera-frame video{width:100%;height:100%;min-height:280px;object-fit:contain;position:absolute;inset:0;background:#050705}.camera-status{display:flex;align-items:center;gap:8px;margin:10px 0;color:var(--muted);font-size:12px}.status-dot{width:8px;height:8px;border-radius:50%;background:#66736a}.status-dot.live{background:var(--green);box-shadow:0 0 10px var(--green)}.camera-placeholder{text-align:center;padding:25px;z-index:1}.camera-placeholder .icon{font-size:48px}.note{font-size:12px;color:var(--muted);line-height:1.5}.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#e8ffd9;color:#172313;padding:12px 18px;border-radius:12px;font-weight:800;box-shadow:0 8px 30px #0008;display:none;z-index:5;max-width:90%;text-align:center}
-@media(max-width:600px){header{padding-top:14px}.grid{grid-template-columns:1fr}.player-inputs{grid-template-columns:1fr}.panel{padding:15px}.scoreboard{grid-template-columns:repeat(2,minmax(0,1fr))}.score{font-size:36px}.pad{grid-template-columns:repeat(4,minmax(0,1fr))}}
+:root{
+ --bg:#0d110f;--panel:#171e19;--panel2:#202a23;--line:#2d3a31;
+ --text:#f2f5f2;--muted:#9aa89d;--green:#a6f06b;--red:#ff7777;--gold:#f2c66d
+}
+*{box-sizing:border-box}
+body{
+ margin:0;background:radial-gradient(circle at 50% -20%,#26382b 0,#0d110f 48%);
+ color:var(--text);font:15px system-ui,-apple-system,Segoe UI,sans-serif;
+ min-height:100vh
+}
+button,input,select{font:inherit}
+button{
+ cursor:pointer;border:0;border-radius:12px;padding:12px 15px;
+ font-weight:750;background:var(--green);color:#10170e;
+ min-height:44px;touch-action:manipulation
+}
+button:disabled{opacity:.35;cursor:not-allowed}
+.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+.danger{background:#492727;color:#ffdede}
+.tiny{padding:8px 10px;font-size:12px;border-radius:9px}
+header{
+ max-width:1100px;margin:auto;padding:20px 18px 12px;
+ display:flex;align-items:center;justify-content:space-between;gap:12px
+}
+.brand{font-size:23px;font-weight:950;letter-spacing:1.5px}
+.brand span{color:var(--green)}
+.sub{color:var(--muted);font-size:11px;letter-spacing:2px}
+main{max-width:1100px;margin:auto;padding:8px 18px 36px}
+.screen{display:none}
+.screen.active{display:block}
+.panel{
+ background:linear-gradient(145deg,#1b241e,#141a16);
+ border:1px solid var(--line);border-radius:19px;padding:18px;
+ box-shadow:0 12px 35px #0003;margin-bottom:14px
+}
+h1,h2,h3,p{margin-top:0}
+h1{font-size:clamp(27px,5vw,42px);margin-bottom:8px}
+h2{font-size:20px;margin-bottom:14px}
+h3{font-size:15px;margin-bottom:8px}
+.muted,.note{color:var(--muted)}
+.note{font-size:12px;line-height:1.6}
+.warning{color:var(--gold)}
+.eyebrow{
+ color:var(--green);font-size:11px;font-weight:900;
+ letter-spacing:1.8px;text-transform:uppercase
+}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.field{display:flex;flex-direction:column;gap:7px;margin:12px 0}
+.field label{color:var(--muted);font-size:12px;font-weight:700}
+input,select{
+ width:100%;background:#0f1511;color:var(--text);
+ border:1px solid var(--line);border-radius:11px;padding:12px
+}
+input:focus,select:focus{outline:2px solid var(--green)}
+button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.player-inputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}
+.actions button{flex:1;min-width:130px}
+.scoreboard{
+ display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));
+ gap:10px;margin-bottom:14px
+}
+.player-card{background:#141b16;border:1px solid var(--line);border-radius:16px;padding:14px}
+.player-card.current{border-color:var(--green)}
+.name,.mini{color:var(--muted);overflow-wrap:anywhere}
+.name{font-size:13px;font-weight:800}
+.mini{font-size:11px}
+.score{font-size:42px;font-weight:950;margin:5px 0}
+.current .score{color:var(--green)}
+.tag{font-size:10px;color:var(--green);font-weight:900}
+.tabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}
+.tab{background:var(--panel2);border:1px solid var(--line);color:var(--muted)}
+.tab.active{background:var(--green);color:#10170e}
+.dart-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.dart-box{
+ background:#0f1511;color:var(--text);border:1px solid var(--line);
+ border-radius:13px;padding:10px;text-align:center
+}
+.dart-box.selected{border-color:var(--gold)}
+.dart-box b{display:block;font-size:23px;color:var(--green)}
+.dart-box small{color:var(--muted)}
+.pad{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px}
+.pad button{padding:11px 4px;background:#253129;color:var(--text);border:1px solid #35443a}
+.pad .mult{background:#354b2c;color:#d9ffc0}
+.pad .bull{background:#59451d;color:#ffe5a7}
+.current-entry{font-size:30px;font-weight:950;color:var(--green);text-align:center;padding:10px}
+.checkout{background:#172319;border:1px solid #405b38;border-radius:14px;padding:14px;margin-bottom:14px}
+.checkout strong{font-size:25px;color:var(--green)}
+.history-row{
+ display:flex;justify-content:space-between;align-items:center;
+ padding:10px 0;border-bottom:1px solid var(--line);gap:12px;
+ overflow-wrap:anywhere
+}
+.history-row:last-child{border:0}
+.camera-frame{
+ position:relative;border:1px solid #536657;border-radius:16px;
+ overflow:hidden;background:#050705;aspect-ratio:4/3
+}
+.camera-frame video{display:block;width:100%;height:100%;object-fit:contain}
+.camera-frame canvas{
+ position:absolute;inset:0;width:100%;height:100%;
+ z-index:2;touch-action:manipulation;cursor:crosshair
+}
+.camera-placeholder{
+ position:absolute;inset:0;display:flex;flex-direction:column;
+ justify-content:center;align-items:center;text-align:center;padding:20px
+}
+.camera-placeholder .icon{font-size:48px}
+.camera-status{display:flex;align-items:center;gap:8px;margin:12px 0;font-size:12px}
+.status-dot{width:8px;height:8px;border-radius:50%;background:#66736a;flex-shrink:0}
+.status-dot.live{background:var(--green)}
+.toast{
+ position:fixed;bottom:max(18px,env(safe-area-inset-bottom));
+ left:50%;transform:translateX(-50%);background:#e8ffd9;color:#172313;
+ padding:12px 18px;border-radius:12px;font-weight:800;
+ display:none;z-index:10;max-width:92%;text-align:center
+}
+[hidden]{display:none!important}
+@media(max-width:600px){
+ header{padding-top:14px}.grid,.player-inputs{grid-template-columns:1fr}
+ .panel{padding:15px}.scoreboard{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .score{font-size:36px}.pad{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
 </style>
 </head>
 <body>
-<header><div><div class="brand">DART<span>VISION</span></div><div class="sub">SMART DARTS SCORING</div></div><button class="secondary tiny" id="resumeBtn" onclick="resumeGame()" style="display:none">NADALJUJ IGRO</button></header>
+<header>
+ <div>
+  <div class="brand">DART<span>VISION</span></div>
+  <div class="sub">SMART DARTS SCORING</div>
+ </div>
+ <button class="secondary tiny" id="resumeBtn" hidden onclick="resumeGame()">NADALJUJ IGRO</button>
+</header>
 <main>
 <section id="setup" class="screen active">
  <div class="panel">
-  <div class="eyebrow">Nova tekma</div><h1>Pripravljeni na <span style="color:var(--green)">180?</span></h1>
-  <p class="muted">Izberi igro, igralce in pravila. DartVision poskrbi za seštevanje.</p>
+  <div class="eyebrow">Nova tekma</div>
+  <h1>Pripravljeni na <span style="color:var(--green)">180?</span></h1>
+  <p class="muted">Izberi igro, igralce in pravila.</p>
   <div class="grid">
-   <div class="field"><label>ZAČETNI REZULTAT</label><select id="startScore"><option>301</option><option selected>501</option><option>701</option></select></div>
-   <div class="field"><label>PRAVILO ZAKLJUČKA</label><select id="outRule"><option value="double" selected>Double Out</option><option value="single">Single Out</option><option value="master">Master Out</option></select></div>
+   <div class="field">
+    <label for="startScore">ZAČETNI REZULTAT</label>
+    <select id="startScore"><option>301</option><option selected>501</option><option>701</option></select>
+   </div>
+   <div class="field">
+    <label for="outRule">PRAVILO ZAKLJUČKA</label>
+    <select id="outRule">
+     <option value="double">Double Out</option>
+     <option value="single">Single Out</option>
+     <option value="master">Master Out</option>
+    </select>
+   </div>
   </div>
-  <div class="field"><label>ŠTEVILO IGRALCEV</label><select id="playerCount" onchange="renderPlayerInputs()"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></div>
-  <div class="field"><label>IMENA IGRALCEV</label><div class="player-inputs" id="playerInputs"></div></div>
+  <div class="field">
+   <label for="playerCount">ŠTEVILO IGRALCEV</label>
+   <select id="playerCount" onchange="renderPlayerInputs()">
+    <option>1</option><option selected>2</option><option>3</option><option>4</option>
+    <option>5</option><option>6</option><option>7</option><option>8</option>
+   </select>
+  </div>
+  <div class="field">
+   <label>IMENA IGRALCEV</label><div class="player-inputs" id="playerInputs"></div>
+  </div>
   <div class="actions"><button onclick="startGame()">ZAČNI IGRO →</button></div>
  </div>
- <div class="panel"><div class="eyebrow">Kaj je vključeno</div><div class="grid"><div>✓ Samodejno odštevanje</div><div>✓ Bust in Double Out</div><div>✓ Checkout nasveti</div><div>✓ Statistika in zgodovina</div><div>✓ Shranjevanje igre</div><div>◷ Kamera – naslednja faza</div></div></div>
+ <div class="panel">
+  <div class="grid">
+   <div>✓ Igre 301, 501 in 701</div><div>✓ Več igralcev</div>
+   <div>✓ Ročni vnos in popravljanje</div><div>✓ Bust in pravila zaključka</div>
+   <div>✓ Checkout in statistika</div><div>✓ Shranjevanje igre</div>
+  </div>
+  <p class="note" style="margin:16px 0 0">
+   Kamera predlaga spremembe slike. Mesto vboda in rezultat vedno preveri.
+  </p>
+ </div>
 </section>
+
 <section id="game" class="screen">
- <div class="actions" style="margin:0 0 12px"><button class="secondary tiny" onclick="backToSetup()">← BACK</button><span class="muted" style="align-self:center;font-size:12px">Igra se samodejno shranjuje</span></div>
- <div class="tabs"><button class="tab active" data-tab="play" onclick="showTab('play',this)">IGRA</button><button class="tab" data-tab="camera" onclick="showTab('camera',this)">KAMERA</button><button class="tab" data-tab="stats" onclick="showTab('stats',this)">STATISTIKA</button></div>
+ <div class="tabs">
+  <button class="tab active" data-tab="play" onclick="showTab('play')">IGRA</button>
+  <button class="tab" data-tab="camera" onclick="showTab('camera')">KAMERA</button>
+  <button class="tab" data-tab="stats" onclick="showTab('stats')">STATISTIKA</button>
+ </div>
+
  <div id="playTab">
   <div class="scoreboard" id="scoreboard"></div>
   <div class="panel">
-   <div class="eyebrow" id="turnLabel">NA VRSTI</div><h2 id="turnTitle">Igralec 1</h2>
-   <div class="dart-row" id="dartRow"><div class="dart-box"><small>MET 1</small><b>–</b></div><div class="dart-box"><small>MET 2</small><b>–</b></div><div class="dart-box"><small>MET 3</small><b>–</b></div></div>
-   <div class="current-entry" id="turnTotal">0 točk</div>
-   <div class="eyebrow" style="margin:12px 0 8px">Vnesi zadetek</div>
+   <div class="eyebrow" id="turnLabel"></div>
+   <h2 id="turnTitle"></h2>
+   <div class="dart-row" id="dartRow"></div>
+   <div class="current-entry" id="turnTotal"></div>
+   <p class="note" id="editHelp">Za popravek tapni že vnesen met, nato izberi pravilen zadetek.</p>
    <div class="pad" id="scorePad"></div>
-   <div class="actions"><button class="secondary" onclick="undoDart()">RAZVELJAVI MET</button><button class="secondary" onclick="clearTurn()">POČISTI POTEZO</button></div>
-   <div class="actions"><button id="confirmBtn" onclick="confirmTurn()" disabled>POTRDI 3 METE</button></div>
-   <p class="note" style="margin:12px 0 0">Vnos je mogoče potrditi tudi po 1 ali 2 metih, če želiš zaključiti potezo. Puščice fizično odstrani šele po potrditvi.</p>
+   <div class="actions">
+    <button class="secondary" onclick="undoDart()">RAZVELJAVI MET</button>
+    <button class="secondary" onclick="clearTurn()">POČISTI POTEZO</button>
+   </div>
+   <div class="actions">
+    <button id="confirmBtn" onclick="confirmTurn()" disabled>POTRDI POTEZO</button>
+   </div>
+   <p class="note" style="margin:12px 0 0">
+    Potrditev je mogoča tudi po enem ali dveh metih. Po treh metih, bustu
+    ali zaključku aplikacija počaka na tvojo potrditev.
+   </p>
   </div>
-  <div class="checkout" id="checkoutBox"><div class="eyebrow">Checkout namig</div><div id="checkoutText">Vnesi začetno igro za predloge zaključkov.</div></div>
- </div>
- <div id="cameraTab" style="display:none">
-  <div class="panel"><div class="eyebrow">Kamera</div><h2>Tarča v živo</h2>
-   <div class="camera-frame" id="cameraFrame"><div class="camera-placeholder" id="cameraPlaceholder"><div class="icon">🎯</div><b>Kamera še ni aktivirana</b><p class="note">Pritisni VKLOPI KAMERO in dovoli dostop. Telefon naj bo na stojalu, tarča pa v celoti vidna.</p></div></div>
-   <div class="actions"><button onclick="calibrateBoard()">⓪ KALIBRIRAJ TARČO</button></div><p class="note" id="calibrationHelp">Najprej klikni KALIBRIRAJ TARČO, nato na zamrznjeni sliki označi sredino bullseye in sredino zgornjega dvojnega polja 20.</p><div class="actions"><button onclick="captureBaseline()" class="secondary">① SHRANI PRAZNO TARČO</button><button onclick="detectChanges()">② ZAZNAJ PUŠČICE</button></div>
-   <div class="actions"><button class="secondary" onclick="resetDetection()">PONASTAVI OSNOVO</button><button class="secondary" onclick="clearDetectionMarks()">SKRIJ OZNAKE</button></div>
-   <div class="panel" style="margin-top:12px;margin-bottom:0;background:#101712"><div class="eyebrow">Eksperimentalna prepoznava</div><h3 id="detectTitle">Najprej shrani sliko prazne tarče</h3><p class="note" id="detectText">Po shranjeni osnovni sliki vrzi eno puščico, počakaj, da se umakneš iz kadra, nato pritisni ZAZNAJ PUŠČICE.</p><div id="detectResults" class="note"></div><div id="scoreCandidates"></div><p class="note">Za popravek lahko tapneš mesto vboda na zamrznjeni sliki; rezultat se izračuna iz položaja.</p></div>
-   <div class="camera-status"><span class="status-dot" id="cameraDot"></span><span id="cameraStatus">Kamera je izklopljena</span></div>
-   <div class="actions"><button onclick="startCamera()">VKLOPI KAMERO</button><button class="secondary" onclick="switchCamera()">ZAMENJAJ KAMERO</button><button class="secondary" onclick="stopCamera()">IZKLOPI</button></div>
-   <div class="actions"><button class="secondary" onclick="showTab('play',document.querySelector('[data-tab=play]'))">← BACK NA IGRO</button></div>
-   <p class="note">Eksperimentalna V3: poskuša predlagati polje S/D/T na podlagi sprememb slike in kalibracije. Samodejni predlog je lahko napačen, posebej če konica ni jasno vidna. Tapni pravo mesto vboda na zamrznjeni sliki za popravek.</p>
+  <div class="checkout">
+   <div class="eyebrow">Checkout namig</div><div id="checkoutText"></div>
   </div>
  </div>
- <div id="statsTab" style="display:none">
-  <div class="panel"><div class="eyebrow">Tekma</div><h2>Statistika igralcev</h2><div id="statsContent"></div><div class="actions"><button class="secondary" onclick="showTab('play',document.querySelector('[data-tab=play]'))">← BACK NA IGRO</button></div></div>
-  <div class="panel"><div class="eyebrow">Zgodovina</div><h2>Zadnje poteze</h2><div id="historyContent"></div></div>
+
+ <div id="cameraTab" hidden>
+  <div class="panel">
+   <div class="eyebrow">Eksperimentalna prepoznava</div>
+   <h2>Tarča v živo</h2>
+   <p id="cameraTurn" class="note"></p>
+   <div class="camera-frame" id="cameraFrame">
+    <div class="camera-placeholder" id="cameraPlaceholder">
+     <div class="icon">🎯</div>
+     <b>Kamera je izklopljena</b>
+     <p class="note">Telefon postavi na stojalo. Tarča mora biti v celoti vidna.</p>
+    </div>
+    <video id="liveVideo" autoplay muted playsinline hidden></video>
+    <canvas id="boardCanvas" hidden aria-label="Slika tarče za kalibracijo in popravljanje zadetka"></canvas>
+   </div>
+   <div class="camera-status">
+    <span class="status-dot" id="cameraDot"></span>
+    <span id="cameraStatus" role="status">Kamera je izklopljena.</span>
+   </div>
+   <div class="actions">
+    <button onclick="startCamera()">VKLOPI KAMERO</button>
+    <button class="secondary" onclick="switchCamera()">ZAMENJAJ KAMERO</button>
+    <button class="secondary" onclick="stopCamera()">IZKLOPI</button>
+   </div>
+   <div class="actions">
+    <button onclick="calibrateBoard()">① KALIBRIRAJ TARČO</button>
+    <button class="secondary" id="cancelCalibration" hidden onclick="cancelCalibration()">PREKLIČI KALIBRACIJO</button>
+   </div>
+   <p class="note" id="calibrationHelp">
+    Označi štiri točke na zunanji meji dvojnega obroča:
+    zgoraj pri 20, desno pri 6, spodaj pri 3 in levo pri 11.
+   </p>
+   <div class="actions">
+    <button onclick="captureBaseline()">② PRAZNA TARČA — SHRANI OSNOVO</button>
+   </div>
+   <p class="note">
+    Osnovo shrani samo, ko na tarči ni nobene puščice in je roka iz kadra.
+    Po vsaki potrjeni potezi odstrani puščice in znova shrani prazno tarčo.
+   </p>
+   <div class="actions">
+    <button id="autoBtn" onclick="toggleMonitoring()">③ ZAČNI SPREMLJANJE</button>
+    <button class="secondary" onclick="manualDetection()">PREVERI NASLEDNJI MET</button>
+   </div>
+   <div class="panel" style="margin-top:16px;background:#101712">
+    <h3 id="detectTitle">Najprej kalibriraj tarčo.</h3>
+    <p class="note" id="detectText">
+     Zaznavanje predlaga območja sprememb, ne potrjenega mesta vboda.
+    </p>
+    <div id="candidatePanel" hidden>
+     <p class="note">
+      Na zamrznjeni sliki tapni <b>dejansko mesto vboda</b>.
+      Gumbi spodaj ponujajo samo možne končne točke spremenjenega območja.
+     </p>
+     <div class="actions" id="endpointButtons"></div>
+     <p id="selectedHit" aria-live="polite"></p>
+     <div class="actions">
+      <button id="acceptHit" disabled onclick="acceptDetection()">DODAJ PREVERJEN ZADETEK</button>
+      <button class="secondary" onclick="discardDetection(false)">PONOVI POSNETEK</button>
+     </div>
+     <div class="actions">
+      <button class="secondary" onclick="discardDetection(true)">NI NOV MET — SPREJMI SLIKO KOT OSNOVO</button>
+     </div>
+     <p class="note">
+      Zadnji gumb uporabi le, če se je spremenila slika brez nove puščice.
+      Če je puščica zgrešila tarčo ali odskočila, v igro ročno vnesi MISS.
+     </p>
+    </div>
+   </div>
+   <div class="dart-row" id="cameraDarts"></div>
+   <div class="actions">
+    <button id="cameraConfirm" disabled onclick="confirmTurn()">POTRDI POTEZO</button>
+    <button class="secondary" onclick="showTab('play')">POPRAVI V IGRI</button>
+   </div>
+   <div class="actions">
+    <button class="secondary" onclick="resetDetection()">PONASTAVI OSNOVO</button>
+    <button class="secondary" onclick="toggleMarks()">PRIKAŽI / SKRIJ OZNAKE</button>
+   </div>
+   <p class="note warning">
+    Ena kamera pri prekrivanju puščic ali skriti konici ne zagotavlja pravilnega
+    mesta vboda. Perspektivna kalibracija ne odpravi popačenja objektiva.
+    Zadetek ob žici preveri neposredno na tarči.
+   </p>
+  </div>
  </div>
- <div class="actions"><button class="secondary" onclick="backToSetup()">NOVA IGRA</button><button class="secondary" onclick="saveGame(true)">SHRANI IGRO</button></div>
+
+ <div id="statsTab" hidden>
+  <div class="panel"><h2>Statistika igralcev</h2><div id="statsContent"></div></div>
+  <div class="panel"><h2>Zadnje poteze</h2><div id="historyContent"></div></div>
+ </div>
+ <div class="actions">
+  <button class="secondary" onclick="backToSetup()">NOVA IGRA / NASTAVITVE</button>
+  <button class="secondary" onclick="saveGame(true)">SHRANI IGRO</button>
+ </div>
 </section>
-<section id="finished" class="screen"><div class="panel" style="text-align:center;padding:35px 18px"><div style="font-size:60px">🏆</div><div class="eyebrow">ZMAGOVALEC</div><h1 id="winnerName" style="color:var(--green)">Igralec</h1><p class="muted">Odlično odigrano!</p><div class="actions"><button onclick="newGame()">NOVA IGRA</button><button class="secondary" onclick="showFinalStats()">STATISTIKA</button></div></div><div class="panel" id="finalStats"></div></section>
+
+<section id="finished" class="screen">
+ <div class="panel" style="text-align:center">
+  <div style="font-size:60px">🏆</div>
+  <div class="eyebrow">ZMAGOVALEC</div><h1 id="winnerName"></h1>
+  <div class="actions">
+   <button onclick="newGame()">NOVA IGRA</button>
+   <button class="secondary" onclick="showFinalStats()">STATISTIKA</button>
+  </div>
+ </div>
+ <div class="panel" id="finalStats"></div>
+</section>
 </main>
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
 <script>
-const $=id=>document.getElementById(id);
-let game=null,stream=null,cameraFacing='environment';
-let detectionBaseline=null, detectionWidth=640, detectionHeight=480, detectionMarks=[];
-let boardCalibration=null, calibrationStep=0, lastFrame=null, scoreCandidates=[];
-const doubles=[...Array(20)].map((_,i)=>`D${i+1}`).concat(['Bull']);
-const outs={};
-function renderPlayerInputs(){let n=+$('playerCount').value; $('playerInputs').innerHTML=Array.from({length:n},(_,i)=>`<input id="pname${i}" maxlength="18" placeholder="Igralec ${i+1}" value="${i===0?'Igralec 1':i===1?'Igralec 2':''}">`).join('')}
-renderPlayerInputs();
-function startGame(){
- let n=+$('playerCount').value,names=Array.from({length:n},(_,i)=>$('pname'+i).value.trim()||`Igralec ${i+1}`);
- game={start:+$('startScore').value,rule:$('outRule').value,players:names.map(name=>({name,score:+$('startScore').value,darts:0,points:0,turns:0,history:[]})),current:0,throws:[],history:[],winner:null};
- saveGame(false);showScreen('game');renderGame();
-}
-function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));$(id).classList.add('active')}
-function showTab(tab,btn){document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===btn));['play','camera','stats'].forEach(t=>$(t+'Tab').style.display=t===tab?'block':'none');if(tab==='stats')renderStats()}
-function renderGame(){
- if(!game)return;
- $('scoreboard').innerHTML=game.players.map((p,i)=>`<div class="player-card ${i===game.current?'current':''}"><div class="name">${esc(p.name)}</div><div class="score">${p.score}</div><div class="mini">${p.turns} potez · ${p.darts} puščic</div>${i===game.current?'<div class="tag">● NA VRSTI</div>':''}</div>`).join('');
- let p=game.players[game.current];$('turnTitle').textContent=p.name;$('turnLabel').textContent=`IGRALEC ${game.current+1} / ${game.players.length}`;
- $('dartRow').innerHTML=[0,1,2].map(i=>`<div class="dart-box"><small>MET ${i+1}</small><b>${game.throws[i]?esc(game.throws[i].label):'–'}</b><small>${game.throws[i]?game.throws[i].score+' točk':''}</small></div>`).join('');
- $('turnTotal').textContent=game.throws.reduce((s,d)=>s+d.score,0)+' točk';$('confirmBtn').disabled=game.throws.length===0;$('confirmBtn').textContent=`POTRDI ${game.throws.length} ${game.throws.length===1?'MET':game.throws.length===2?'META':'METE'}`;
- renderPad();renderCheckout();saveGame(false);
-}
-function renderPad(){
- let nums=Array.from({length:20},(_,i)=>i+1);
- $('scorePad').innerHTML=nums.map(n=>`<button onclick="addDart(${n},'S')">${n}</button>`).join('')+
- `<button class="mult" onclick="addDart(0,'MISS')">MISS</button><button class="mult" onclick="addDart(25,'S')">25</button><button class="bull" onclick="addDart(50,'D')">BULL 50</button>`+
- nums.map(n=>`<button class="mult" onclick="addDart(${n},'D')">D${n}</button>`).join('')+
- nums.map(n=>`<button class="mult" onclick="addDart(${n},'T')">T${n}</button>`).join('');
-}
-function addDart(n,m){
- if(!game||game.throws.length>=3)return;
- let score=m==='MISS'?0:m==='T'?n*3:m==='D'?n*2:n;
- let label=m==='MISS'?'MISS':m==='S'?String(n):m+n;
- game.throws.push({n,m,score,label});renderGame();
-}
-function undoDart(){if(game?.throws.length){game.throws.pop();renderGame()}}
-function clearTurn(){if(game){game.throws=[];renderGame()}}
-function validFinish(d){if(game.rule==='single')return true;if(game.rule==='double')return d.m==='D'||(d.n===50&&d.m==='D');return d.m==='D'||d.m==='T'||d.n===50&&d.m==='D'}
-function confirmTurn(){
- if(!game||!game.throws.length)return;
- let p=game.players[game.current],sum=game.throws.reduce((s,d)=>s+d.score,0),remaining=p.score-sum,last=game.throws[game.throws.length-1];
- let win=remaining===0&&validFinish(last);
- let bust=remaining<0||(remaining===1&&game.rule!=='single')||(remaining===0&&!win);
- let entry={player:p.name,throws:game.throws.map(x=>({...x})),total:sum,before:p.score,after:bust?p.score:remaining,bust,win};
- if(!bust){p.score=remaining;p.points+=sum;p.darts+=game.throws.length;p.turns++}
- else {p.darts+=game.throws.length;p.turns++}
- p.history.push(entry);game.history.unshift(entry);game.throws=[];
- if(win){game.winner=p.name;saveGame(false);showWinner();return}
- game.current=(game.current+1)%game.players.length;renderGame();toast(bust?'BUST! Rezultat ostane enak.':'Rezultat potrjen.');
-}
-function checkout(n){
- if(n>170||n<2)return null;
- let opts=[];
- for(let a=1;a<=20;a++)for(let am of ['S','D','T']){let av=a*(am==='S'?1:am==='D'?2:3);for(let b=1;b<=20;b++)for(let bm of ['S','D','T']){let bv=b*(bm==='S'?1:bm==='D'?2:3);let c=n-av-bv;if(c>=2&&c<=40&&c%2===0)opts.push([am+a,bm+b,'D'+c/2]);if(c===50)opts.push([am+a,bm+b,'BULL']);}let c=n-av;if(c>=2&&c<=40&&c%2===0)opts.push([am+a,'D'+c/2]);if(c===50)opts.push([am+a,'BULL']);}
- if(n<=40&&n%2===0)opts.push(['D'+n/2]);if(n===50)opts.push(['BULL']);
- return opts.sort((a,b)=>a.length-b.length)[0]||null;
-}
-function renderCheckout(){
- let p=game.players[game.current],left=p.score-game.throws.reduce((s,d)=>s+d.score,0);
- if(left<=1){$('checkoutText').innerHTML=left===0?'Preveri zadnji met in potrdi zaključek.':'Bust – pri Double Out mora ostati vsaj 2.';return}
- let c=checkout(left);
- $('checkoutText').innerHTML=c?`<strong>${left}</strong><div style="margin-top:5px">${c.map(esc).join(' → ')}</div><div class="note">Predlagana pot do zaključka v največ ${c.length} puščicah.</div>`:`<strong>${left}</strong><div class="note">Ni checkouta v treh puščicah. Znižaj rezultat.</div>`;
-}
-function renderStats(){
- $('statsContent').innerHTML=game.players.map(p=>`<div class="history-row"><b>${esc(p.name)}</b><span>${p.score} ostanek · ${p.darts?((p.points/p.darts)*3).toFixed(1):'0.0'} avg/3</span></div>`).join('');
- $('historyContent').innerHTML=game.history.length?game.history.slice(0,15).map(h=>`<div class="history-row"><span>${esc(h.player)} · ${h.throws.map(d=>esc(d.label)).join(', ')} ${h.bust?'(BUST)':''}</span><b>${h.bust?'–':h.total}</b></div>`).join(''):'<p class="muted">Še ni potrjenih metov.</p>';
-}
-function showWinner(){showScreen('finished');$('winnerName').textContent=game.winner;showFinalStats()}
-function showFinalStats(){$('finalStats').innerHTML='<h2>Končni rezultati</h2>'+game.players.slice().sort((a,b)=>a.score-b.score).map(p=>`<div class="history-row"><b>${esc(p.name)}</b><span>${p.score} · ${p.darts?((p.points/p.darts)*3).toFixed(1):0} avg/3</span></div>`).join('')}
-function newGame(){game=null;localStorage.removeItem('dartvision-save');showScreen('setup')}
-function backToSetup(){if(confirm('Začnem novo igro? Trenutna igra bo ostala shranjena.'))showScreen('setup')}
-function saveGame(show){if(!game)return;localStorage.setItem('dartvision-save',JSON.stringify(game));$('resumeBtn').style.display='inline-block';if(show)toast('Igra je shranjena na tej napravi.')}
-function resumeGame(){try{game=JSON.parse(localStorage.getItem('dartvision-save'));if(game){showScreen('game');renderGame()}}catch(e){toast('Shranjene igre ni mogoče odpreti.')}}
-function toast(t){$('toast').textContent=t;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2200)}
-function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-async function startCamera(){
- try{
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){throw new Error('no-camera-api')}
-  if(stream)stopCamera();
-  stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:cameraFacing},width:{ideal:1920},height:{ideal:1080}},audio:false});
-  const v=document.createElement('video');v.id='liveVideo';v.autoplay=true;v.playsInline=true;v.muted=true;v.srcObject=stream;
-  $('cameraFrame').innerHTML='';$('cameraFrame').appendChild(v);await v.play();
-  const overlay=document.createElement('canvas');overlay.id='detectionOverlay';overlay.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;z-index:2';$('cameraFrame').appendChild(overlay);overlay.addEventListener('click',onBoardTap);overlay.style.pointerEvents='auto';
-  $('cameraStatus').textContent='Kamera deluje – tarča v živo';$('cameraDot').classList.add('live');
- }catch(e){
-  $('cameraStatus').textContent='Kamera ni na voljo';$('cameraDot').classList.remove('live');
-  toast(e.message==='no-camera-api'?'Brskalnik ne podpira dostopa do kamere. Odpri aplikacijo prek HTTPS.':'Dostop do kamere ni uspel. Preveri dovoljenja brskalnika in HTTPS povezavo.');
- }
-}
-async function switchCamera(){cameraFacing=cameraFacing==='environment'?'user':'environment';if(stream)await startCamera();else toast(cameraFacing==='environment'?'Ob naslednjem vklopu bo uporabljena zadnja kamera.':'Ob naslednjem vklopu bo uporabljena sprednja kamera.');}
+'use strict';
 
-function grabCameraFrame(w=detectionWidth,h=detectionHeight){
- const v=$('liveVideo');if(!v||!v.videoWidth||!v.videoHeight)throw new Error('Kamera še ni pripravljena.');
- const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d',{willReadFrequently:true});
- // Use the complete camera frame. Keep the phone and board completely still.
- x.drawImage(v,0,0,w,h);return x.getImageData(0,0,w,h);
+const $ = id => document.getElementById(id);
+const SAVE_KEY = 'dartvision-save';
+let game = null, editIndex = null, toastTimer = null;
+let storageWarningShown = false;
+
+function esc(value) {
+ return String(value).replace(/[&<>"']/g, c => ({
+  '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+ }[c]));
 }
-function calibrateBoard(){
- if(!$('liveVideo')){toast('Najprej vklopi kamero.');return}
- lastFrame=grabCameraFrame();calibrationStep=1;boardCalibration=null;
- $('calibrationHelp').textContent='Tapni točno SREDINO BULLSEYE na sliki. Nato tapni sredino ZGORNJEGA DVOJNEGA POLJA 20.';
- showSnapshot();toast('Označi sredino tarče.');
+
+function toast(message) {
+ clearTimeout(toastTimer);
+ $('toast').textContent = message;
+ $('toast').style.display = 'block';
+ toastTimer = setTimeout(() => $('toast').style.display = 'none', 4000);
 }
-function showSnapshot(){
- const frame=$('cameraFrame');let snap=$('boardSnapshot');
- if(!snap){snap=document.createElement('canvas');snap.id='boardSnapshot';snap.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:fill;z-index:3;touch-action:manipulation;cursor:crosshair';frame.appendChild(snap);snap.addEventListener('click',onBoardTap);}
- snap.width=detectionWidth;snap.height=detectionHeight;snap.getContext('2d').putImageData(lastFrame,0,0);
+
+function showScreen(id) {
+ document.querySelectorAll('.screen').forEach(el =>
+  el.classList.toggle('active', el.id === id)
+ );
 }
-function onBoardTap(ev){
- const target=ev.currentTarget,rect=target.getBoundingClientRect(),x=(ev.clientX-rect.left)/rect.width*detectionWidth,y=(ev.clientY-rect.top)/rect.height*detectionHeight;
- if(calibrationStep===1){boardCalibration={cx:x,cy:y};calibrationStep=2;$('calibrationHelp').textContent='Zdaj tapni SREDINO ZGORNJEGA DVOJNEGA POLJA 20 (rdeči obroč tik pod številko 20).';return}
- if(calibrationStep===2){const r=Math.hypot(x-boardCalibration.cx,y-boardCalibration.cy);if(r<30){toast('Točka je preblizu sredini.');return}boardCalibration.r=r;boardCalibration.angle=Math.atan2(y-boardCalibration.cy,x-boardCalibration.cx);calibrationStep=0;$('calibrationHelp').textContent='Kalibracija shranjena. Zdaj odstrani zamrznjeno sliko, shrani prazno tarčo in testiraj mete.';const snap=$('boardSnapshot');if(snap)snap.remove();toast('Tarča kalibrirana.');return}
- if(boardCalibration){const hit=scoreAt(x,y);scoreCandidates.push({x,y,...hit,source:'Ročni popravek'});renderCandidates();toast('Zadetek dodan: '+hit.label)}
+
+function showTab(tab) {
+ ['play','camera','stats'].forEach(name => {
+  $(name + 'Tab').hidden = name !== tab;
+ });
+ document.querySelectorAll('[data-tab]').forEach(el =>
+  el.classList.toggle('active', el.dataset.tab === tab)
+ );
+ if (tab === 'stats' && game) renderStats();
 }
-function scoreAt(x,y){
- if(!boardCalibration)return {label:'Brez kalibracije',score:0};
- const b=boardCalibration,rr=Math.hypot(x-b.cx,y-b.cy)/b.r;
- const a=Math.atan2(y-b.cy,x-b.cx),delta=((a-b.angle+Math.PI*3)%(Math.PI*2))-Math.PI;
- const order=[20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
- const idx=((Math.round(delta/(Math.PI/10))%20)+20)%20,n=order[idx];
- // Standard dartboard dimensions, scaled to the center of the double ring.
- const radius=rr*166;let mult='S',points=n;
- if(radius>170){return {label:'MISS',score:0}}
- if(radius<=6.35)return {label:'BULL',score:50};
- if(radius<=15.9)return {label:'25',score:25};
- if(radius>=99&&radius<=107){mult='T';points=n*3}
- if(radius>=162&&radius<=170){mult='D';points=n*2}
- return {label:mult+n,score:points};
+
+function renderPlayerInputs() {
+ const previous = [...$('playerInputs').querySelectorAll('input')].map(el => el.value);
+ $('playerInputs').innerHTML = Array.from(
+  {length:Number($('playerCount').value)},
+  (_,i) => `<input id="pname${i}" maxlength="18" aria-label="Ime igralca ${i+1}"
+   placeholder="Igralec ${i+1}"
+   value="${esc(previous[i] ?? `Igralec ${i+1}`)}">`
+ ).join('');
 }
-function renderCandidates(){
- $('scoreCandidates').innerHTML=scoreCandidates.length?'<h3>Predlagani zadetki – preveri!</h3>'+scoreCandidates.map((c,i)=>`<div class="history-row"><span>${i+1}. <b>${esc(c.label)}</b> (${c.score}) <small>${esc(c.source)}</small></span><button class="tiny secondary" onclick="scoreCandidates.splice(${i},1);renderCandidates()">ODSTRANI</button></div>`).join('')+'<div class="actions"><button onclick="applyCandidates()">PRENESI V IGRO</button><button class="secondary" onclick="scoreCandidates=[];renderCandidates()">POČISTI</button></div>':'';
+
+/* Pravila igre */
+
+function dart(n,m) {
+ if (m === 'D' && n === 50) n = 25;
+ if (!(
+  (m === 'MISS' && n === 0) ||
+  (Number.isInteger(n) && n >= 1 && n <= 20 && ['S','D','T'].includes(m)) ||
+  (n === 25 && ['S','D'].includes(m))
+ )) throw Error('Neveljaven zadetek');
+
+ return {
+  n,m,
+  score:m === 'MISS' ? 0 : n * ({S:1,D:2,T:3}[m]),
+  label:m === 'MISS' ? 'MISS' : n === 25 ? (m === 'D' ? 'BULL' : '25') : m+n
+ };
 }
-function applyCandidates(){
- if(!game){toast('Najprej začni igro.');return}
- for(const c of scoreCandidates.slice(0,3-game.throws.length)){
- const m=c.label==='MISS'?'MISS':c.label==='BULL'?'D':c.label==='25'?'S':c.label[0];
- const n=c.label==='BULL'?50:c.label==='25'?25:c.label==='MISS'?0:Number(c.label.slice(1));
- addDart(n,m);
+
+function finish(d,rule) {
+ return d.score > 0 && (
+  rule === 'single' || d.m === 'D' || (rule === 'master' && d.m === 'T')
+ );
+}
+
+function evaluate(before,throws,rule) {
+ let remaining = before, total = 0, count = 0;
+ for (const d of throws) {
+  remaining -= d.score;
+  total += d.score;
+  count++;
+  const win = remaining === 0 && finish(d,rule);
+  const bust = remaining < 0 ||
+   (remaining === 1 && rule !== 'single') ||
+   (remaining === 0 && !win);
+  if (win || bust) return {
+   remaining:bust ? before : remaining,
+   total,count,win,bust,terminal:true
+  };
  }
- scoreCandidates=[];renderCandidates();showTab('play',document.querySelector('[data-tab=play]'));toast('Preveri zadetke in potrdi potezo.');
+ return {remaining,total,count,win:false,bust:false,terminal:false};
 }
-function captureBaseline(){
- try{detectionBaseline=grabCameraFrame();detectionMarks=[];scoreCandidates=[];renderCandidates();drawDetectionMarks();$('detectTitle').textContent='Osnovna slika je shranjena';$('detectText').textContent='Zdaj vrzi eno puščico. Ne premikaj telefona, počakaj, da se roka umakne, nato pritisni ZAZNAJ PUŠČICE.';$('detectResults').textContent='Osnova: '+detectionWidth+' × '+detectionHeight+' px';toast('Osnovna slika tarče shranjena.');}
- catch(e){toast(e.message)}
-}
-function resetDetection(){detectionBaseline=null;detectionMarks=[];drawDetectionMarks();$('detectTitle').textContent='Najprej shrani sliko prazne tarče';$('detectText').textContent='Usmeri kamero v prazno tarčo in pritisni SHRANI PRAZNO TARČO.';$('detectResults').textContent='';toast('Osnova prepoznave je ponastavljena.');}
-function clearDetectionMarks(){detectionMarks=[];drawDetectionMarks();$('detectResults').textContent='Oznake so skrite.';}
-function detectChanges(){
- if(!detectionBaseline){toast('Najprej shrani prazno tarčo.');return;}
- try{
-  const now=grabCameraFrame(),a=detectionBaseline.data,b=now.data,w=detectionWidth,h=detectionHeight;
-  const mask=new Uint8Array(w*h);let changed=0;
-  // Pixel difference: tolerate small camera sensor noise and compression flicker.
-  for(let i=0,p=0;i<a.length;i+=4,p++){
-   const d=Math.max(Math.abs(a[i]-b[i]),Math.abs(a[i+1]-b[i+1]),Math.abs(a[i+2]-b[i+2]));
-   if(d>42){mask[p]=1;changed++;}
-  }
-  // Connected components over changed pixels; tiny isolated sensor noise is discarded.
-  const seen=new Uint8Array(w*h),components=[],stack=[];
-  for(let p=0;p<mask.length;p++){
-   if(!mask[p]||seen[p])continue;
-   seen[p]=1;stack.length=0;stack.push(p);let minX=w,minY=h,maxX=0,maxY=0,area=0,sumX=0,sumY=0;
-   while(stack.length){const q=stack.pop(),x=q%w,y=(q/w)|0;area++;sumX+=x;sumY+=y;if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;
-    for(let yy=Math.max(0,y-1);yy<=Math.min(h-1,y+1);yy++)for(let xx=Math.max(0,x-1);xx<=Math.min(w-1,x+1);xx++){const z=yy*w+xx;if(mask[z]&&!seen[z]){seen[z]=1;stack.push(z)}}
+
+const shots = [...Array(20)].flatMap((_,i) =>
+ ['T','D','S'].map(m => dart(i+1,m))
+).concat([dart(25,'D'),dart(25,'S')]).sort((a,b) => b.score-a.score);
+
+function checkout(left,rule,available) {
+ const dead = new Set();
+ function search(n,k) {
+  if (k === 0 || n <= 0 || n > 60*k) return null;
+  const key = n+':'+k;
+  if (dead.has(key)) return null;
+  for (const d of shots) {
+   if (d.score === n && finish(d,rule)) return [d.label];
+   if (k > 1 && d.score < n && (rule === 'single' || n-d.score >= 2)) {
+    const tail = search(n-d.score,k-1);
+    if (tail) return [d.label,...tail];
    }
-   const bw=maxX-minX+1,bh=maxY-minY+1;
-   if(area>=7 && (bw>=3||bh>=3))components.push({x:minX,y:minY,w:bw,h:bh,area,cx:sumX/area,cy:sumY/area});
   }
-  components.sort((u,v)=>v.area-u.area);detectionMarks=components.slice(0,18);drawDetectionMarks();
-  lastFrame=now;showSnapshot();
-  scoreCandidates=[];
-  if(boardCalibration){
-    const bcal=boardCalibration;
-    // Heuristic: long, thin changed components can be dart shafts.
-    // A shaft endpoint nearest the board center is only a candidate for the impact.
-    const eligible=components.filter(c=>c.area>=12&&c.area<5000&&Math.max(c.w,c.h)/Math.max(1,Math.min(c.w,c.h))>2.0&&Math.hypot(c.cx-bcal.cx,c.cy-bcal.cy)<bcal.r*1.35);
-    for(const c of eligible.slice(0,3)){
-      const corners=[[c.x,c.y],[c.x+c.w,c.y],[c.x,c.y+c.h],[c.x+c.w,c.y+c.h]];
-      corners.sort((a,b)=>Math.hypot(a[0]-bcal.cx,a[1]-bcal.cy)-Math.hypot(b[0]-bcal.cx,b[1]-bcal.cy));
-      const [x,y]=corners[0],hit=scoreAt(x,y);
-      scoreCandidates.push({x,y,...hit,source:'Samodejni kandidat (negotovo)'});
-    }
-  }
-  renderCandidates();
-  const likely=detectionMarks.filter(c=>Math.max(c.w,c.h)/Math.max(1,Math.min(c.w,c.h))>1.7 && c.area>=9);
-  $('detectTitle').textContent=detectionMarks.length?`Zaznanih ${detectionMarks.length} spremenjenih območij`:'Ni zaznanih jasnih sprememb';
-  $('detectText').textContent=likely.length?`Našla sem ${likely.length} podolgovatih območij, ki bi lahko bila puščica. Oglej si rdeče oznake na sliki.`:'Ni jasne oblike puščice. Preveri osvetlitev, stabilnost telefona in ali je roka umaknjena.';
-  $('detectResults').innerHTML=`Spremenjenih pik: ${changed}. Kandidati: ${likely.length}.<br>`+detectionMarks.slice(0,8).map((c,i)=>`Območje ${i+1}: sredina približno x=${Math.round(c.cx/w*100)}%, y=${Math.round(c.cy/h*100)}%, velikost ${c.w}×${c.h}px`).join('<br>')+`<br><b>To še ni rezultat meta – oznake so samo kandidati.</b>`;
-  toast(detectionMarks.length?'Preveri predlagane zadetke ali tapni mesto vboda na sliki.':'Sprememb ni bilo mogoče zanesljivo zaznati.');
- }catch(e){toast(e.message)}
-}
-function drawDetectionMarks(){
- const c=$('detectionOverlay');if(!c)return;const v=$('liveVideo');if(!v||!v.videoWidth)return;c.width=v.videoWidth;c.height=v.videoHeight;const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);
- ctx.lineWidth=Math.max(2,c.width/300);ctx.font=`bold ${Math.max(12,c.width/35)}px system-ui`;ctx.strokeStyle='#ff5757';ctx.fillStyle='#ff5757';
- detectionMarks.forEach((m,i)=>{const sx=c.width/detectionWidth,sy=c.height/detectionHeight,x=m.x*sx,y=m.y*sy,bw=m.w*sx,bh=m.h*sy;ctx.strokeRect(x,y,bw,bh);ctx.fillText(String(i+1),x+3,Math.max(16,y-4));});
+  dead.add(key);
+  return null;
+ }
+ for (let k=1;k<=available;k++) {
+  const result = search(left,k);
+  if (result) return result;
+ }
+ return null;
 }
 
-function stopCamera(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}calibrationStep=0;$('cameraFrame').innerHTML='<div class="camera-placeholder"><div class="icon">🎯</div><b>Kamera je izklopljena</b><p class="note">Vklopi kamero za prikaz tarče.</p></div>';if($('cameraStatus'))$('cameraStatus').textContent='Kamera je izklopljena';if($('cameraDot'))$('cameraDot').classList.remove('live');}
-if(localStorage.getItem('dartvision-save'))$('resumeBtn').style.display='inline-block';
+function currentState() {
+ return evaluate(game.players[game.current].score,game.throws,game.rule);
+}
+
+function startGame() {
+ if (game && !game.winner && !confirm('Začnem novo tekmo in zamenjam shranjeno igro?')) return;
+ const start = Number($('startScore').value);
+ const names = Array.from({length:Number($('playerCount').value)},(_,i) =>
+  $('pname'+i).value.trim() || `Igralec ${i+1}`
+ );
+ game = {
+  version:4,start,rule:$('outRule').value,
+  players:names.map(name => ({name,score:start,darts:0,points:0,turns:0,history:[]})),
+  current:0,throws:[],history:[],winner:null
+ };
+ editIndex = null;
+ resetDetection(false);
+ showScreen('game');
+ showTab('play');
+ renderGame();
+}
+
+function addDart(n,m) {
+ if (!game || game.winner) return false;
+ let d;
+ try { d = dart(n,m); } catch(e) { toast(e.message); return false; }
+
+ if (editIndex !== null) {
+  game.throws[editIndex] = d;
+  const state = currentState();
+  if (state.count < game.throws.length) {
+   game.throws = game.throws.slice(0,state.count);
+   toast('Meti po zaključku ali bustu so odstranjeni.');
+  }
+  editIndex = null;
+ } else {
+  if (game.throws.length >= 3 || currentState().terminal) {
+   toast('Poteza je zaključena. Potrdi jo ali popravi met.');
+   return false;
+  }
+  game.throws.push(d);
+ }
+ renderGame();
+ return true;
+}
+
+function editDart(index) {
+ if (!game || !game.throws[index]) return;
+ editIndex = editIndex === index ? null : index;
+ showTab('play');
+ renderGame();
+}
+
+function undoDart() {
+ if (!game || !game.throws.length) return;
+ game.throws.pop();
+ editIndex = null;
+ renderGame();
+}
+
+function clearTurn() {
+ if (!game) return;
+ game.throws = [];
+ editIndex = null;
+ renderGame();
+}
+
+function confirmTurn() {
+ if (!game || game.winner || !game.throws.length) return;
+ if (pending) {
+  toast('Najprej dodaj ali zavrni odprti predlog kamere.');
+  return;
+ }
+ const p = game.players[game.current];
+ const state = currentState();
+ const entry = {
+  player:p.name,
+  throws:game.throws.slice(0,state.count).map(d => ({...d})),
+  total:state.total,before:p.score,after:state.remaining,
+  bust:state.bust,win:state.win
+ };
+ p.score = state.remaining;
+ p.points += state.bust ? 0 : state.total;
+ p.darts += state.count;
+ p.turns++;
+ p.history.push(entry);
+ game.history.unshift(entry);
+ game.throws = [];
+ editIndex = null;
+
+ // Stare puščice ne smejo postati met naslednjega igralca.
+ resetDetection(false);
+ waitingForEmpty = true;
+
+ if (state.win) {
+  game.winner = p.name;
+  saveGame(false);
+  showWinner();
+  return;
+ }
+ game.current = (game.current+1) % game.players.length;
+ renderGame();
+ setDetectionMessage(
+  'Poteza potrjena — odstrani puščice.',
+  'Pred naslednjim igralcem shrani novo sliko prazne tarče.'
+ );
+ toast(state.bust ? 'BUST! Rezultat ostane enak.' : 'Rezultat potrjen.');
+}
+
+function dartsMarkup(editable) {
+ return [0,1,2].map(i => {
+  const d = game.throws[i];
+  return `<button class="dart-box ${editable && editIndex===i?'selected':''}"
+   ${editable && d ? `onclick="editDart(${i})"` : 'disabled'}>
+   <small>MET ${i+1}</small>
+   <b>${d ? esc(d.label) : '–'}</b>
+   <small>${d ? d.score+' točk' : ''}</small>
+  </button>`;
+ }).join('');
+}
+
+function renderGame() {
+ if (!game) return;
+ const p = game.players[game.current], state = currentState();
+ $('scoreboard').innerHTML = game.players.map((player,i) =>
+  `<div class="player-card ${i===game.current?'current':''}">
+   <div class="name">${esc(player.name)}</div>
+   <div class="score">${player.score}</div>
+   <div class="mini">${player.turns} potez · ${player.darts} puščic</div>
+   ${i===game.current?'<div class="tag">● NA VRSTI</div>':''}
+  </div>`
+ ).join('');
+ $('turnLabel').textContent = `IGRALEC ${game.current+1} / ${game.players.length}`;
+ $('turnTitle').textContent = p.name;
+ $('dartRow').innerHTML = dartsMarkup(true);
+ $('cameraDarts').innerHTML = dartsMarkup(true);
+ $('turnTotal').textContent = state.bust ? 'BUST — rezultat ostane enak' :
+  state.win ? 'ZAKLJUČEK — potrdi potezo' :
+  `${state.total} točk · ostane ${state.remaining}`;
+ $('editHelp').textContent = editIndex === null ?
+  'Za popravek tapni že vnesen met, nato izberi pravilen zadetek.' :
+  `Popravljaš met ${editIndex+1}. Izberi pravilen zadetek.`;
+
+ const locked = editIndex === null && (game.throws.length>=3 || state.terminal);
+ const padShots = [
+  ...Array.from({length:20},(_,i) => dart(i+1,'S')),
+  dart(0,'MISS'),dart(25,'S'),dart(25,'D'),
+  ...Array.from({length:20},(_,i) => dart(i+1,'D')),
+  ...Array.from({length:20},(_,i) => dart(i+1,'T'))
+ ];
+ $('scorePad').innerHTML = padShots.map(d =>
+  `<button ${locked?'disabled':''}
+   class="${d.n===25?'bull':d.m==='S'?'':'mult'}"
+   onclick="addDart(${d.n},'${d.m}')">${esc(d.label)}</button>`
+ ).join('');
+
+ const count = game.throws.length;
+ for (const id of ['confirmBtn','cameraConfirm']) {
+  $(id).disabled = count===0 || !!pending;
+  $(id).textContent = state.bust ? 'POTRDI BUST' :
+   state.win ? 'POTRDI ZAKLJUČEK' : `POTRDI ${count} ${count===1?'MET':count===2?'META':'METE'}`;
+ }
+ $('cameraTurn').textContent =
+  `${p.name} · ostanek ${p.score} · vnesenih ${count}/3 metov`;
+ renderCheckout();
+ saveGame(false);
+}
+
+function renderCheckout() {
+ const state = currentState(), available = 3-game.throws.length;
+ if (state.bust || state.win) {
+  $('checkoutText').textContent = state.bust ?
+   'Bust. Potrdi potezo ali popravi zadetek.' :
+   'Veljaven zaključek. Potrdi potezo.';
+  return;
+ }
+ if (!available) {
+  $('checkoutText').textContent = 'Trije meti so vneseni. Preveri in potrdi potezo.';
+  return;
+ }
+ const route = checkout(state.remaining,game.rule,available);
+ const rules = {single:'Single Out',double:'Double Out',master:'Master Out'};
+ $('checkoutText').innerHTML =
+  `<strong>${state.remaining}</strong>
+   <div class="note">${rules[game.rule]} · na voljo ${available} ${available===1?'puščica':'puščice'}</div>`+
+  (route ? `<div>${route.map(esc).join(' → ')}</div>` :
+   '<div class="note">S preostalimi puščicami ni veljavnega checkouta.</div>');
+}
+
+function statsMarkup() {
+ return game.players.map(p =>
+  `<div class="history-row">
+   <b>${esc(p.name)}</b>
+   <span>${p.score} ostanek · ${p.darts} puščic ·
+    ${p.darts?(p.points/p.darts*3).toFixed(1):'0.0'} avg/3</span>
+  </div>`
+ ).join('');
+}
+
+function renderStats() {
+ $('statsContent').innerHTML = statsMarkup();
+ $('historyContent').innerHTML = game.history.length ?
+  game.history.slice(0,30).map(h =>
+   `<div class="history-row">
+    <span>${esc(h.player)} · ${h.throws.map(d=>esc(d.label)).join(', ')}
+    ${h.bust?' · BUST':h.win?' · ZAKLJUČEK':''}</span>
+    <b>${h.bust?'0':h.total}</b>
+   </div>`
+  ).join('') : '<p class="muted">Še ni potrjenih metov.</p>';
+}
+
+function showWinner() {
+ stopCamera();
+ showScreen('finished');
+ $('winnerName').textContent = game.winner;
+ showFinalStats();
+}
+
+function showFinalStats() {
+ if (game) $('finalStats').innerHTML = '<h2>Končni rezultati</h2>'+statsMarkup();
+}
+
+function backToSetup() {
+ saveGame(false);
+ stopCamera();
+ showScreen('setup');
+}
+
+function newGame() {
+ stopCamera();
+ game = null;
+ editIndex = null;
+ try { localStorage.removeItem(SAVE_KEY); } catch(e) {}
+ $('resumeBtn').hidden = true;
+ showScreen('setup');
+}
+
+function saveGame(show=false) {
+ if (!game) return;
+ try {
+  localStorage.setItem(SAVE_KEY,JSON.stringify(game));
+  $('resumeBtn').hidden = false;
+  if (show) toast('Igra je shranjena na tej napravi.');
+ } catch(e) {
+  if (show || !storageWarningShown) {
+   toast('Shranjevanje ni uspelo. Preveri prostor in nastavitve brskalnika.');
+   storageWarningShown = true;
+  }
+ }
+}
+
+/*
+ Stare igre preračunamo iz zgodovine, da popravimo tudi nekdanji Bull=100.
+ Izvirna kopija ostane v ločenem lokalnem ključu.
+*/
+function restoreGame(raw) {
+ const g = JSON.parse(raw);
+ if (!g || ![301,501,701].includes(g.start) ||
+  !['single','double','master'].includes(g.rule) ||
+  !Array.isArray(g.players) || !g.players.length || g.players.length>8 ||
+  !Number.isInteger(g.current) || g.current<0 || g.current>=g.players.length ||
+  !Array.isArray(g.throws) || g.throws.length>3 ||
+  !Array.isArray(g.history)) throw Error('Neveljavna shranjena igra.');
+
+ const oldVersion = g.version !== 4;
+ const entries = new Map();
+
+ g.players = g.players.map(player => {
+  if (typeof player.name !== 'string' || !Array.isArray(player.history))
+   throw Error('Neveljavni podatki igralca.');
+
+  let score=g.start,points=0,darts=0;
+  const history = player.history.map(original => {
+   if (score===0 || !Array.isArray(original.throws) ||
+    !original.throws.length || original.throws.length>3)
+    throw Error('Neveljavna zgodovina igre.');
+
+   const ds = original.throws.map(d => dart(d.n,d.m));
+   const state = evaluate(score,ds,g.rule);
+   const entry = {
+    player:player.name,throws:ds.slice(0,state.count),
+    total:state.total,before:score,after:state.remaining,
+    bust:state.bust,win:state.win
+   };
+   score = state.remaining;
+   points += state.bust ? 0 : state.total;
+   darts += state.count;
+
+   const key=JSON.stringify(original);
+   if (!entries.has(key)) entries.set(key,[]);
+   entries.get(key).push(entry);
+   return entry;
+  });
+  return {name:player.name,score,points,darts,turns:history.length,history};
+ });
+
+ g.history = g.history.map(original => {
+  const matches=entries.get(JSON.stringify(original));
+  if (!matches || !matches.length) throw Error('Zgodovina igre se ne ujema.');
+  return matches.pop();
+ });
+ if ([...entries.values()].some(list=>list.length))
+  throw Error('Zgodovina igre ni popolna.');
+
+ g.throws = g.throws.map(d=>dart(d.n,d.m));
+ g.throws = g.throws.slice(0,
+  evaluate(g.players[g.current].score,g.throws,g.rule).count
+ );
+ const winner = g.players.find(p=>p.score===0);
+ g.winner = winner ? winner.name : null;
+ g.version = 4;
+ return {g,oldVersion};
+}
+
+function resumeGame() {
+ try {
+  const raw=localStorage.getItem(SAVE_KEY);
+  if (!raw) { toast('Ni shranjene igre.'); return; }
+  const restored=restoreGame(raw);
+  if (restored.oldVersion) {
+   localStorage.setItem(SAVE_KEY+'-pred-v4',raw);
+  }
+  stopCamera();
+  game=restored.g;
+  editIndex=null;
+  if (game.winner) showWinner();
+  else { showScreen('game'); showTab('play'); renderGame(); }
+  if (restored.oldVersion)
+   toast('Stara igra je preračunana s popravljenimi pravili. Izvirna kopija je ohranjena.');
+ } catch(e) {
+  toast('Igre ni mogoče varno obnoviti. Shranjeni podatki niso bili izbrisani.');
+ }
+}
+
+/* Perspektivna preslikava slike na ravnino tarče v milimetrih. */
+
+function solve(matrix) {
+ const a=matrix.map(row=>row.slice()),n=a.length;
+ for (let c=0;c<n;c++) {
+  let pivot=c;
+  for (let r=c+1;r<n;r++)
+   if (Math.abs(a[r][c])>Math.abs(a[pivot][c])) pivot=r;
+  if (Math.abs(a[pivot][c])<1e-9) throw Error('Neveljavna kalibracija');
+  [a[c],a[pivot]]=[a[pivot],a[c]];
+  const v=a[c][c];
+  for (let j=c;j<=n;j++) a[c][j]/=v;
+  for (let r=0;r<n;r++) if (r!==c) {
+   const f=a[r][c];
+   for (let j=c;j<=n;j++) a[r][j]-=f*a[c][j];
+  }
+ }
+ return a.map(row=>row[n]);
+}
+
+function homography(points) {
+ const target=[[0,-170],[170,0],[0,170],[-170,0]],rows=[];
+ points.forEach(([x,y],i)=>{
+  const [u,v]=target[i];
+  rows.push(
+   [x,y,1,0,0,0,-u*x,-u*y,u],
+   [0,0,0,x,y,1,-v*x,-v*y,v]
+  );
+ });
+ return [...solve(rows),1];
+}
+
+function project(h,x,y) {
+ const z=h[6]*x+h[7]*y+1;
+ if (Math.abs(z)<1e-9) return {x:Infinity,y:Infinity};
+ return {
+  x:(h[0]*x+h[1]*y+h[2])/z,
+  y:(h[3]*x+h[4]*y+h[5])/z
+ };
+}
+
+function boardHit(x,y) {
+ const r=Math.hypot(x,y);
+ if (r>170) return dart(0,'MISS');
+ if (r<=6.35) return dart(25,'D');
+ if (r<=15.9) return dart(25,'S');
+ const order=[20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
+ const index=((Math.round(Math.atan2(x,-y)/(Math.PI/10))%20)+20)%20;
+ return dart(order[index],r>=162?'D':r>=99&&r<=107?'T':'S');
+}
+
+function nearWire(x,y) {
+ const r=Math.hypot(x,y);
+ if ([6.35,15.9,99,107,162,170].some(v=>Math.abs(r-v)<2)) return true;
+ if (r<=15.9 || r>172) return false;
+ const angle=Math.atan2(x,-y),step=Math.PI/10;
+ const sectorOffset=Math.abs(angle/step-Math.round(angle/step))*step;
+ return r*Math.sin(step/2-sectorOffset)<2;
+}
+
+/* Kamera in pregled posameznega meta. */
+
+let stream=null,cameraFacing='environment',cameraSession=0;
+let frameWidth=0,frameHeight=0;
+let calibration=null,calibrationPoints=null,savedCalibration=null;
+let roi=null,roiCount=0;
+let baseline=null,previousGray=null,stableFrames=0;
+let frozen=null,pending=null;
+let monitoring=false,waitingForEmpty=false,marksVisible=true;
+let busy=false,lastScanTime=0,manualRequested=false;
+
+const calibrationLabels=[
+ 'ZGORNJO točko pri 20',
+ 'DESNO točko pri 6',
+ 'SPODNJO točko pri 3',
+ 'LEVO točko pri 11'
+];
+const workCanvas=document.createElement('canvas');
+const workContext=workCanvas.getContext('2d',{willReadFrequently:true});
+const boardContext=$('boardCanvas').getContext('2d');
+
+function setDetectionMessage(title,text) {
+ $('detectTitle').textContent=title;
+ $('detectText').textContent=text;
+}
+
+function invalidateFrames() {
+ baseline=null;
+ previousGray=null;
+ stableFrames=0;
+ frozen=null;
+ pending=null;
+ manualRequested=false;
+ $('candidatePanel').hidden=true;
+ $('acceptHit').disabled=true;
+}
+
+function resetDetection(notify=true) {
+ monitoring=false;
+ waitingForEmpty=false;
+ invalidateFrames();
+ updateMonitorButton();
+ drawBoard();
+ if (calibration) setDetectionMessage(
+  'Shrani prazno tarčo.',
+  'Odstrani vse puščice in shrani osnovno sliko.'
+ );
+ else setDetectionMessage('Najprej kalibriraj tarčo.','Kalibracija je vezana na položaj kamere.');
+ if (game && !game.winner) renderGame();
+ if (notify) toast('Osnova je ponastavljena. Vneseni meti so ohranjeni.');
+}
+
+function updateMonitorButton() {
+ $('autoBtn').textContent=monitoring?'USTAVI SPREMLJANJE':'③ ZAČNI SPREMLJANJE';
+}
+
+async function startCamera() {
+ stopCamera();
+ const session=cameraSession;
+ let acquired=null;
+ try {
+  if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia)
+   throw Error('Za kamero odpri aplikacijo prek HTTPS in podprtega brskalnika.');
+
+  acquired=await navigator.mediaDevices.getUserMedia({
+   video:{
+    facingMode:{ideal:cameraFacing},
+    width:{ideal:1920},height:{ideal:1080}
+   },
+   audio:false
+  });
+  if (session!==cameraSession) {
+   acquired.getTracks().forEach(track=>track.stop());
+   return;
+  }
+
+  stream=acquired;
+  const video=$('liveVideo');
+  video.srcObject=stream;
+  video.hidden=false;
+  await video.play();
+  if (session!==cameraSession) return;
+  if (!video.videoWidth || !video.videoHeight)
+   throw Error('Kamera še ni pripravljena. Poskusi ponovno.');
+
+  frameWidth=Math.min(960,video.videoWidth);
+  frameHeight=Math.round(frameWidth*video.videoHeight/video.videoWidth);
+  workCanvas.width=frameWidth;
+  workCanvas.height=frameHeight;
+  $('boardCanvas').width=frameWidth;
+  $('boardCanvas').height=frameHeight;
+  $('boardCanvas').hidden=false;
+  $('cameraFrame').style.aspectRatio=`${frameWidth} / ${frameHeight}`;
+  $('cameraPlaceholder').hidden=true;
+  $('cameraDot').classList.add('live');
+  $('cameraStatus').textContent='Kamera deluje. Ob premiku telefona ponovi kalibracijo.';
+  setDetectionMessage('Kalibriraj tarčo.','Označi štiri točke na zunanji meji dvojnega obroča.');
+
+  for (const track of stream.getVideoTracks()) {
+   track.addEventListener('ended',()=>{
+    if (session===cameraSession) {
+     stopCamera();
+     toast('Kamera se je ustavila. Po ponovnem vklopu ponovi kalibracijo.');
+    }
+   });
+  }
+ } catch(e) {
+  if (session!==cameraSession) return;
+  if (acquired) acquired.getTracks().forEach(track=>track.stop());
+  stopCamera();
+  $('cameraStatus').textContent='Kamere ni bilo mogoče vključiti.';
+  toast(e.name==='NotAllowedError'?
+   'Dovoli dostop do kamere v nastavitvah brskalnika.':
+   e.message || 'Dostop do kamere ni uspel.');
+ }
+}
+
+function stopCamera() {
+ cameraSession++;
+ monitoring=false;
+ if (stream) stream.getTracks().forEach(track=>track.stop());
+ stream=null;
+ $('liveVideo').srcObject=null;
+ $('liveVideo').hidden=true;
+ $('boardCanvas').hidden=true;
+ $('cameraPlaceholder').hidden=false;
+ $('cameraDot').classList.remove('live');
+ $('cameraStatus').textContent='Kamera je izklopljena.';
+ calibration=null;
+ calibrationPoints=null;
+ savedCalibration=null;
+ roi=null;
+ roiCount=0;
+ frameWidth=frameHeight=0;
+ invalidateFrames();
+ $('cancelCalibration').hidden=true;
+ updateMonitorButton();
+ $('calibrationHelp').textContent=
+  'Po vklopu kamere označi zunanjo mejo dvojnega obroča pri 20, 6, 3 in 11.';
+ if (game && !game.winner) renderGame();
+}
+
+async function switchCamera() {
+ cameraFacing=cameraFacing==='environment'?'user':'environment';
+ if (stream) await startCamera();
+ else toast(cameraFacing==='environment'?'Izbrana je zadnja kamera.':'Izbrana je sprednja kamera.');
+}
+
+function grabFrame() {
+ const video=$('liveVideo');
+ if (!stream || !video.videoWidth || video.readyState<2 || !frameWidth)
+  throw Error('Kamera še ni pripravljena.');
+ const expected=Math.round(frameWidth*video.videoHeight/video.videoWidth);
+ if (expected!==frameHeight) {
+  stopCamera();
+  throw Error('Razmerje slike kamere se je spremenilo. Vklopi kamero in ponovi kalibracijo.');
+ }
+ workContext.drawImage(video,0,0,frameWidth,frameHeight);
+ return workContext.getImageData(0,0,frameWidth,frameHeight);
+}
+
+function grayFrame(image) {
+ const data=image.data,out=new Uint8Array(image.width*image.height);
+ for (let i=0,p=0;i<data.length;i+=4,p++)
+  out[p]=(data[i]*77+data[i+1]*150+data[i+2]*29)>>8;
+ return out;
+}
+
+function calibrateBoard() {
+ if (!stream) { toast('Najprej vklopi kamero.'); return; }
+ if (game?.throws.length) {
+  toast('Najprej dokončaj potezo in odstrani puščice.');
+  return;
+ }
+ try {
+  const image=grabFrame();
+  resetDetection(false);
+  savedCalibration=calibration;
+  calibrationPoints=[];
+  frozen=image;
+  $('cancelCalibration').hidden=false;
+  $('calibrationHelp').textContent=
+   'Tapni ZGORNJO zunanjo mejo dvojnega obroča, točno na sredini polja D20. Ne številke 20.';
+  drawBoard();
+ } catch(e) { toast(e.message); }
+}
+
+function cancelCalibration() {
+ if (calibrationPoints===null) return;
+ calibration=savedCalibration;
+ savedCalibration=null;
+ calibrationPoints=null;
+ frozen=null;
+ $('cancelCalibration').hidden=true;
+ $('calibrationHelp').textContent=calibration?
+  'Prejšnja kalibracija je ohranjena. Shrani prazno tarčo.':
+  'Kalibracija je preklicana. Za zaznavanje jo moraš ponoviti.';
+ if (calibration) buildROI();
+ drawBoard();
+}
+
+function validCalibration(points) {
+ // Štiri točke morajo tvoriti dovolj velik konveksen štirikotnik.
+ for (let i=0;i<4;i++) {
+  const a=points[i],b=points[(i+1)%4],c=points[(i+2)%4];
+  const cross=(b[0]-a[0])*(c[1]-b[1])-(b[1]-a[1])*(c[0]-b[0]);
+  if (cross<100) return false;
+ }
+ return Math.hypot(points[0][0]-points[2][0],points[0][1]-points[2][1])>100 &&
+  Math.hypot(points[1][0]-points[3][0],points[1][1]-points[3][1])>100;
+}
+
+function buildROI() {
+ roi=new Uint8Array(frameWidth*frameHeight);
+ roiCount=0;
+ for (let y=0;y<frameHeight;y++) for (let x=0;x<frameWidth;x++) {
+  const p=project(calibration,x,y);
+  if (Math.hypot(p.x,p.y)<=210) {
+   roi[y*frameWidth+x]=1;
+   roiCount++;
+  }
+ }
+}
+
+function boardTap(event) {
+ if (!stream || !frameWidth) return;
+ const rect=$('boardCanvas').getBoundingClientRect();
+ const x=(event.clientX-rect.left)*frameWidth/rect.width;
+ const y=(event.clientY-rect.top)*frameHeight/rect.height;
+
+ if (calibrationPoints!==null) {
+  calibrationPoints.push([x,y]);
+  if (calibrationPoints.length<4) {
+   $('calibrationHelp').textContent=
+    `Zdaj tapni ${calibrationLabels[calibrationPoints.length]} — zunanjo mejo dvojnega obroča na sredini polja.`;
+  } else {
+   try {
+    if (!validCalibration(calibrationPoints))
+     throw Error('Točke niso veljavne. Označi jih v vrstnem redu 20 → 6 → 3 → 11.');
+    const next=homography(calibrationPoints);
+    const previous=calibration;
+    calibration=next;
+    buildROI();
+    if (roiCount<1500) {
+     calibration=previous;
+     if (calibration) buildROI();
+     throw Error('Tarča je na sliki premajhna. Približaj kamero.');
+    }
+    calibrationPoints=null;
+    savedCalibration=null;
+    frozen=null;
+    $('cancelCalibration').hidden=true;
+    $('calibrationHelp').textContent=
+     'Perspektivna kalibracija je shranjena. Ob premiku telefona jo ponovi. Zdaj shrani prazno tarčo.';
+    setDetectionMessage('Shrani prazno tarčo.','Na tarči ne sme biti nobene puščice.');
+    toast('Kalibracija shranjena.');
+   } catch(e) {
+    calibrationPoints=[];
+    $('calibrationHelp').textContent='Poskusi znova: najprej zgornja zunanja meja pri 20.';
+    toast(e.message);
+   }
+  }
+  drawBoard();
+  return;
+ }
+ if (pending && calibration) selectPoint(x,y,'Ročno označeno mesto vboda');
+}
+
+$('boardCanvas').addEventListener('click',boardTap);
+
+function captureBaseline() {
+ if (!calibration || calibrationPoints!==null) {
+  toast('Najprej dokončaj kalibracijo.');
+  return;
+ }
+ if (!game || game.winner) { toast('Najprej začni igro.'); return; }
+ if (game.throws.length) {
+  toast('Prazno tarčo shrani med potezama. Trenutno potezo najprej dokončaj.');
+  return;
+ }
+ try {
+  const image=grabFrame();
+  invalidateFrames();
+  baseline=grayFrame(image);
+  waitingForEmpty=false;
+  drawBoard();
+  setDetectionMessage('Osnova prazne tarče je shranjena.',
+   'Vrzi eno puščico in se umakni. Za samodejno spremljanje pritisni ZAČNI SPREMLJANJE.');
+  renderGame();
+  toast('Osnova shranjena.');
+ } catch(e) { toast(e.message); }
+}
+
+function canObserve(notify=false) {
+ let message='';
+ if (!stream) message='Najprej vklopi kamero.';
+ else if (!calibration || calibrationPoints!==null) message='Najprej dokončaj kalibracijo.';
+ else if (!baseline || waitingForEmpty) message='Najprej shrani prazno tarčo.';
+ else if (!game || game.winner) message='Najprej začni igro.';
+ else if (pending) message='Najprej preveri odprti predlog.';
+ else if (game.throws.length>=3 || currentState().terminal)
+  message='Preveri in potrdi trenutno potezo.';
+ if (message && notify) toast(message);
+ return !message;
+}
+
+function toggleMonitoring() {
+ if (monitoring) {
+  monitoring=false;
+  manualRequested=false;
+  updateMonitorButton();
+  return;
+ }
+ if (!canObserve(true)) return;
+ previousGray=null;
+ stableFrames=0;
+ monitoring=true;
+ updateMonitorButton();
+ setDetectionMessage('Spremljanje je vključeno.',
+  'Počakam na umirjeno sliko. Vsak predlog moraš preveriti.');
+}
+
+function manualDetection() {
+ if (!canObserve(true)) return;
+ previousGray=null;
+ stableFrames=0;
+ manualRequested=true;
+ setDetectionMessage('Čakam na umirjeno sliko.',
+  'Ne premikaj telefona in umakni roko iz kadra.');
+}
+
+/*
+ Globalno spremembo svetlosti ocenimo z mediano razlik.
+ To pomaga pri osvetlitvi, ne odpravlja pa senc ali premika kamere.
+*/
+function brightnessOffset(a,b) {
+ const samples=[];
+ for (let i=0;i<a.length;i+=23) if (roi[i]) samples.push(b[i]-a[i]);
+ samples.sort((x,y)=>x-y);
+ return samples.length?samples[samples.length>>1]:0;
+}
+
+function changedFraction(a,b,threshold) {
+ const offset=brightnessOffset(a,b);
+ let changed=0,count=0;
+ for (let i=0;i<a.length;i+=3) if (roi[i]) {
+  count++;
+  if (Math.abs(b[i]-a[i]-offset)>threshold) changed++;
+ }
+ return count?changed/count:1;
+}
+
+function differenceMask(a,b) {
+ const offset=brightnessOffset(a,b);
+ const raw=new Uint8Array(a.length),mask=new Uint8Array(a.length);
+ let rawCount=0,changed=0;
+ for (let i=0;i<a.length;i++) if (roi[i] && Math.abs(b[i]-a[i]-offset)>32) {
+  raw[i]=1;
+  rawCount++;
+ }
+ // Ohrani tanke povezane črte in zavrzi osamljene pike.
+ for (let y=1;y<frameHeight-1;y++) for (let x=1;x<frameWidth-1;x++) {
+  const i=y*frameWidth+x;
+  if (!raw[i]) continue;
+  let neighbours=0;
+  for (let dy=-1;dy<=1;dy++) for (let dx=-1;dx<=1;dx++)
+   if (dx || dy) neighbours+=raw[i+dy*frameWidth+dx];
+  if (neighbours>=2) { mask[i]=1; changed++; }
+ }
+ return {mask,changed,rawCount};
+}
+
+function componentsFrom(mask) {
+ const seen=new Uint8Array(mask.length),components=[];
+ for (let seed=0;seed<mask.length;seed++) {
+  if (!mask[seed] || seen[seed]) continue;
+  const stack=[seed],pixels=[];
+  let sx=0,sy=0,sxx=0,syy=0,sxy=0;
+  let minX=frameWidth,minY=frameHeight,maxX=0,maxY=0;
+  seen[seed]=1;
+  while (stack.length) {
+   const i=stack.pop(),x=i%frameWidth,y=Math.floor(i/frameWidth);
+   pixels.push(i);
+   sx+=x;sy+=y;sxx+=x*x;syy+=y*y;sxy+=x*y;
+   minX=Math.min(minX,x);maxX=Math.max(maxX,x);
+   minY=Math.min(minY,y);maxY=Math.max(maxY,y);
+   for (let dy=-1;dy<=1;dy++) for (let dx=-1;dx<=1;dx++) {
+    if (!dx && !dy) continue;
+    const xx=x+dx,yy=y+dy;
+    if (xx<0 || yy<0 || xx>=frameWidth || yy>=frameHeight) continue;
+    const j=yy*frameWidth+xx;
+    if (mask[j] && !seen[j]) { seen[j]=1;stack.push(j); }
+   }
+  }
+  const area=pixels.length;
+  if (area<12) continue;
+  const cx=sx/area,cy=sy/area;
+  const xx=sxx/area-cx*cx,yy=syy/area-cy*cy,xy=sxy/area-cx*cy;
+  const angle=.5*Math.atan2(2*xy,xx-yy);
+  const vx=Math.cos(angle),vy=Math.sin(angle);
+  const trace=xx+yy,disc=Math.hypot(xx-yy,2*xy);
+  const major=(trace+disc)/2,minor=Math.max(.1,(trace-disc)/2);
+  let low=Infinity,high=-Infinity,first=null,last=null;
+  for (const i of pixels) {
+   const x=i%frameWidth,y=Math.floor(i/frameWidth);
+   const t=(x-cx)*vx+(y-cy)*vy;
+   if (t<low) { low=t;first={x,y}; }
+   if (t>high) { high=t;last={x,y}; }
+  }
+  components.push({
+   area,minX,minY,maxX,maxY,first,last,
+   length:high-low,elongation:major/minor
+  });
+ }
+ return components.sort((a,b)=>b.length-a.length);
+}
+
+function inspectFrame(image,gray) {
+ const diff=differenceMask(baseline,gray);
+ if (diff.rawCount>roiCount*.12) {
+  setDetectionMessage('Preveč sprememb za predlog.',
+   'Možni vzroki so roka, senca ali premik telefona. Če se je telefon premaknil, ponovi kalibracijo.');
+  return false;
+ }
+ if (diff.changed<12) {
+  if (manualRequested) {
+   manualRequested=false;
+   setDetectionMessage('Ni dovolj jasne spremembe.',
+    'Če je puščica zgrešila ali odskočila, ročno vnesi MISS. Slabše vidno puščico vnesi ročno.');
+  }
+  return false;
+ }
+
+ const components=componentsFrom(diff.mask);
+ if (!components.length) return false;
+ const endpoints=[];
+ for (const c of components.filter(c=>c.length>=10 && c.elongation>=3).slice(0,3)) {
+  for (const point of [c.first,c.last]) {
+   if (point && !endpoints.some(p=>Math.hypot(p.x-point.x,p.y-point.y)<8))
+    endpoints.push({...point});
+  }
+ }
+
+ pending={image,gray,components:components.slice(0,8),endpoints,selected:null};
+ frozen=image;
+ manualRequested=false;
+ $('candidatePanel').hidden=false;
+ $('selectedHit').textContent='Mesto vboda še ni izbrano.';
+ $('acceptHit').disabled=true;
+ $('endpointButtons').innerHTML=endpoints.map((_,i)=>
+  `<button class="secondary tiny" onclick="chooseEndpoint(${i})">MOŽNA KONICA ${i+1}</button>`
+ ).join('');
+ setDetectionMessage('Sprememba je zaznana — preveri mesto vboda.',
+  'Označene točke so konci spremenjenih območij. Niso potrjene konice puščice.');
+ renderGame();
+ drawBoard();
+ return true;
+}
+
+function chooseEndpoint(index) {
+ const point=pending?.endpoints[index];
+ if (point) selectPoint(point.x,point.y,'Izbrana možna konica — preveri na sliki');
+}
+
+function selectPoint(x,y,source) {
+ if (!pending || !calibration) return;
+ const board=project(calibration,x,y);
+ if (!Number.isFinite(board.x) || !Number.isFinite(board.y)) {
+  toast('Točka ni veljavna.');
+  return;
+ }
+ const hit=boardHit(board.x,board.y);
+ pending.selected={x,y,hit};
+ $('selectedHit').textContent=
+  `${source}: ${hit.label} (${hit.score} točk).`+
+  (nearWire(board.x,board.y)?' Blizu žice — preveri neposredno na tarči.':'');
+ $('acceptHit').disabled=false;
+ drawBoard();
+}
+
+function acceptDetection() {
+ if (!pending?.selected || !game) return;
+ const event=pending,hit=event.selected.hit;
+ editIndex=null;
+ if (!addDart(hit.n,hit.m)) return;
+ baseline=event.gray;
+ pending=null;
+ frozen=null;
+ previousGray=null;
+ stableFrames=0;
+ $('candidatePanel').hidden=true;
+ renderGame();
+ drawBoard();
+
+ if (game.throws.length>=3 || currentState().terminal) {
+  monitoring=false;
+  updateMonitorButton();
+  setDetectionMessage('Poteza čaka na potrditev.',
+   'Preveri vse zadetke. Puščice odstrani šele po potrditvi.');
+ } else {
+  setDetectionMessage('Zadetek je dodan.',
+   monitoring?'Vrzi naslednjo puščico.':'Za naslednji met vključi spremljanje ali pritisni PREVERI NASLEDNJI MET.');
+ }
+}
+
+function discardDetection(acceptAsBaseline) {
+ if (!pending) return;
+ if (acceptAsBaseline) baseline=pending.gray;
+ pending=null;
+ frozen=null;
+ previousGray=null;
+ stableFrames=0;
+ $('candidatePanel').hidden=true;
+ renderGame();
+ drawBoard();
+ setDetectionMessage(
+  acceptAsBaseline?'Sprememba sprejeta brez novega meta.':'Predlog je zavrnjen.',
+  acceptAsBaseline?
+   'Naslednjo spremembo primerjam s trenutno sliko.':
+   'Prejšnja osnova je ohranjena. Za nov posnetek pritisni PREVERI NASLEDNJI MET.'
+ );
+ // Po zavrnitvi brez nove osnove ne ponavljaj istega predloga v zanki.
+ if (!acceptAsBaseline) {
+  monitoring=false;
+  manualRequested=false;
+  updateMonitorButton();
+ }
+}
+
+function toggleMarks() {
+ marksVisible=!marksVisible;
+ drawBoard();
+}
+
+function drawBoard() {
+ if (!frameWidth || !frameHeight) return;
+ const ctx=boardContext;
+ ctx.clearRect(0,0,frameWidth,frameHeight);
+ if (frozen) ctx.putImageData(frozen,0,0);
+ ctx.lineWidth=Math.max(2,frameWidth/400);
+ ctx.font=`bold ${Math.max(14,frameWidth/45)}px system-ui`;
+
+ function dot(x,y,label,color) {
+  ctx.beginPath();ctx.arc(x,y,6,0,Math.PI*2);
+  ctx.fillStyle=color;ctx.fill();
+  ctx.strokeStyle='#000';ctx.stroke();
+  ctx.fillStyle=color;
+  ctx.fillText(label,Math.min(x+9,frameWidth-65),Math.max(20,y-9));
+ }
+ if (calibrationPoints!==null) {
+  calibrationPoints.forEach(([x,y],i)=>dot(x,y,String(i+1),'#a6f06b'));
+ }
+ if (!pending) return;
+ if (marksVisible) {
+  ctx.strokeStyle='#ff7777';
+  for (const c of pending.components)
+   ctx.strokeRect(c.minX,c.minY,c.maxX-c.minX+1,c.maxY-c.minY+1);
+  pending.endpoints.forEach((point,i)=>dot(point.x,point.y,String(i+1),'#f2c66d'));
+ }
+ if (pending.selected)
+  dot(pending.selected.x,pending.selected.y,pending.selected.hit.label,'#a6f06b');
+}
+
+function scanCamera() {
+ if (busy || !canObserve(false)) return;
+ if (!monitoring && !manualRequested) return;
+ busy=true;
+ try {
+  const image=grabFrame(),gray=grayFrame(image);
+  if (!previousGray) {
+   previousGray=gray;
+   stableFrames=0;
+   return;
+  }
+  const motion=changedFraction(previousGray,gray,18);
+  previousGray=gray;
+  if (motion>.004) {
+   stableFrames=0;
+   setDetectionMessage('Čekam na umirjeno sliko.',
+    'Umakni roko iz kadra. Telefon mora ostati pri miru.');
+   return;
+  }
+  stableFrames++;
+  if (stableFrames<3) return;
+  inspectFrame(image,gray);
+ } catch(e) {
+  monitoring=false;
+  manualRequested=false;
+  updateMonitorButton();
+  setDetectionMessage('Zaznavanje je ustavljeno.',e.message);
+ } finally {
+  busy=false;
+ }
+}
+
+function animationLoop(time) {
+ const visible=$('game').classList.contains('active') && !$('cameraTab').hidden;
+ if (visible && stream && !document.hidden && time-lastScanTime>=300) {
+  lastScanTime=time;
+  scanCamera();
+ }
+ requestAnimationFrame(animationLoop);
+}
+
+document.addEventListener('visibilitychange',()=>{
+ previousGray=null;
+ stableFrames=0;
+});
+
+renderPlayerInputs();
+try { $('resumeBtn').hidden=!localStorage.getItem(SAVE_KEY); } catch(e) {}
+requestAnimationFrame(animationLoop);
 </script>
-</body></html>
+</body>
+</html>
