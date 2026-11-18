@@ -222,10 +222,14 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
    <h2>Tarča v živo</h2>
    <p id="cameraTurn" class="note"></p>
    <div id="labIntro" hidden>
-    <p class="note">Vklopi kamero ali naloži fotografijo prazne tarče. Kalibriraj jo in shrani osnovo. Nato vrzi eno puščico ali naloži sliko po metu iz istega položaja, brez povečave ali obrezovanja.</p>
-    <div class="field"><label for="labFile">FOTOGRAFIJA TARČE</label><input id="labFile" type="file" accept="image/*"></div>
-    <p class="note">Za pregled ene slike po kalibraciji shrani osnovo in pritisni PREVERI NASLEDNJI MET. S tapom preveriš polje pod prstom. Slike ostanejo v brskalniku.</p>
+    <h3>Preizkus z dvema fotografijama</h3>
+    <div class="field"><label for="labEmptyFile">1. PRAZNA TARČA</label><input id="labEmptyFile" type="file" accept="image/*"></div>
+    <p class="note" id="labPhotoHelp" role="status">Naloži prazno tarčo, nato na sliki označi robove dvojnega obroča in sredino BULL-a.</p>
+    <div class="field"><label for="labDartFile">2. TARČA Z ENO PUŠČICO</label><input id="labDartFile" type="file" accept="image/*" disabled></div>
+    <p class="note">Obe fotografiji posnemi iz istega položaja, brez povečave ali obrezovanja. Predlog se izpiše samodejno po nalaganju druge slike. Slike ostanejo v brskalniku.</p>
+    <p class="note">Za preizkus v živo uporabi gumbe za kamero pod sliko.</p>
    </div>
+   <p id="labPrediction" role="status" hidden></p>
    <div class="camera-frame" id="cameraFrame">
     <div class="camera-placeholder" id="cameraPlaceholder">
      <div class="icon">🎯</div>
@@ -252,14 +256,14 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
     Označi štiri točke na zunanji meji dvojnega obroča:
     zgoraj pri 20, desno pri 6, spodaj pri 3 in levo pri 11. Nato tapni sredino BULL-a za preverjanje.
    </p>
-   <div class="actions">
+   <div class="actions" id="baselineActions">
     <button onclick="captureBaseline()">② PRAZNA TARČA — SHRANI OSNOVO</button>
    </div>
    <p class="note" id="gameBaseline">
     Osnovo shrani samo, ko na tarči ni nobene puščice in je roka iz kadra.
     Po vsaki potrjeni potezi odstrani puščice in znova shrani prazno tarčo.
    </p>
-   <div class="actions">
+   <div class="actions" id="monitorActions">
     <button id="autoBtn" onclick="toggleMonitoring()">③ ZAČNI SPREMLJANJE</button>
     <button class="secondary" onclick="manualDetection()">PREVERI NASLEDNJI MET</button>
    </div>
@@ -287,7 +291,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
       Če je puščica zgrešila tarčo ali odskočila, v igro ročno vnesi MISS.
      </p>
      <div id="labReview" hidden>
-      <p id="labPrediction" aria-live="polite"></p>
+ 
       <div class="field"><label for="labActual">DEJANSKI ZADETEK, PREVERJEN NA TARČI</label><select id="labActual"></select></div>
       <div class="actions">
        <button id="labRecord" disabled onclick="recordLab()">ZABELEŽI PREIZKUS</button>
@@ -309,7 +313,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
     <button class="secondary" onclick="showTab('play')">POPRAVI V IGRI</button>
    </div>
    <div class="actions">
-    <button class="secondary" onclick="resetDetection()">PONASTAVI OSNOVO</button>
+    <button class="secondary" id="resetBaselineBtn" onclick="resetDetection()">PONASTAVI OSNOVO</button>
     <button class="secondary" onclick="toggleMarks()">PRIKAŽI / SKRIJ OZNAKE</button>
    </div>
    <p class="note warning">
@@ -866,7 +870,7 @@ function nearWire(x,y) {
 
 let stream=null,cameraFacing='environment',cameraSession=0;
 let frameWidth=0,frameHeight=0;
-let labMode=false,labPhoto=null,labUpload=0;
+let labMode=false,labPhoto=null,labEmptyPhoto=null,labUpload=0;
 const labLog=[];
 let calibration=null,calibrationPoints=null,savedCalibration=null;
 let roi=null,roiCount=0;
@@ -906,14 +910,22 @@ function closeLab() {
  showScreen('setup');
 }
 
-async function loadLabPhoto(event) {
+function updateLabPhotoControls() {
+ const photoMode=!!labEmptyPhoto;
+ const ready=photoMode && !!baseline && calibrationPoints===null;
+ $('labDartFile').disabled=!ready;
+ for (const id of ['baselineActions','monitorActions','resetBaselineBtn'])
+  $(id).hidden=photoMode;
+ $('labPhotoHelp').textContent=ready ?
+  'Kalibracija je končana. Naloži sliko z eno puščico.' :
+  photoMode ? 'Na prazni tarči označi robove dvojnega obroča in sredino BULL-a.' :
+  'Naloži prazno tarčo, nato na sliki označi robove dvojnega obroča in sredino BULL-a.';
+}
+
+async function loadLabPhoto(event, empty) {
  const file=event.target.files[0];
  event.target.value='';
- if (!file || !labMode) return;
- if (pending || calibrationPoints!==null) {
-  toast('Najprej dokončaj pregled ali kalibracijo.');
-  return;
- }
+ if (!file || !labMode || (!empty && $('labDartFile').disabled)) return;
  const upload=++labUpload;
  const url=URL.createObjectURL(file);
  try {
@@ -921,25 +933,29 @@ async function loadLabPhoto(event) {
   photo.src=url;
   await photo.decode();
   if (upload!==labUpload || !labMode) return;
-  if (pending || calibrationPoints!==null) {
-   toast('Najprej dokončaj pregled ali kalibracijo.');
+  if (empty) {
+   stopCamera();
+   labEmptyPhoto=labPhoto=photo;
+   configureFrame(photo.naturalWidth,photo.naturalHeight);
+   $('cameraStatus').textContent='Prazna tarča je naložena.';
+   calibrateBoard();
    return;
   }
-  if (labPhoto && (labPhoto.naturalWidth!==photo.naturalWidth ||
-   labPhoto.naturalHeight!==photo.naturalHeight)) {
-   toast('Dimenzije slik se razlikujejo. Za nov kader pritisni IZKLOPI in ponovi kalibracijo.');
+  if ($('labDartFile').disabled) return;
+  if (photo.naturalWidth!==labEmptyPhoto.naturalWidth ||
+   photo.naturalHeight!==labEmptyPhoto.naturalHeight) {
+   toast('Dimenzije se razlikujejo. Naloži sliko iz istega kadra v enaki velikosti.');
    return;
   }
-  if (!labPhoto) stopCamera();
   labPhoto=photo;
-  configureFrame(photo.naturalWidth,photo.naturalHeight);
-  $('autoBtn').disabled=true;
-  $('cameraStatus').textContent='Fotografija je naložena.';
-  drawBoard();
-  if (baseline) manualDetection();
-  else if (!calibration) setDetectionMessage('Kalibriraj fotografijo.','Označi štiri točke na obroču in sredino BULL-a.');
+  $('cameraStatus').textContent='Slika z metom je naložena.';
+  manualRequested=true;
+  const image=grabFrame();
+  inspectFrame(image,grayFrame(image));
  } catch(e) {
-  if (upload===labUpload && labMode) toast('Fotografije ni bilo mogoče odpreti. Poskusi z JPG ali PNG.');
+  if (upload!==labUpload || !labMode) return;
+  manualRequested=false;
+  toast('Fotografije ni bilo mogoče obdelati. Poskusi z JPG ali PNG.');
  } finally {
   URL.revokeObjectURL(url);
  }
@@ -956,6 +972,7 @@ function showLabPrediction(endpoints,obstructed,changed) {
  const description=label ? 'Predlog: '+label : detail ? 'Dvoumno: '+detail :
   obstructed ? 'Brez predloga: prevelika sprememba kadra' : 'Brez jasnega predloga';
  pending.prediction={label,description,hasCandidate:points.length>0};
+ $('labPrediction').hidden=false;
  $('labPrediction').textContent=description+'. Spremenjenih pik v območju tarče: '+changed+' %.';
  $('labActual').value='';
  $('labRecord').disabled=true;
@@ -1004,6 +1021,7 @@ function resetStability() {
 
 function invalidateFrames() {
  baseline=null;
+ $('labPrediction').hidden=true;
  resetStability();
  frozen=null;
  pending=null;
@@ -1097,8 +1115,8 @@ function configureFrame(width,height) {
 function stopCamera() {
  cameraSession++;
  labUpload++;
- labPhoto=null;
- $('autoBtn').disabled=false;
+ labPhoto=labEmptyPhoto=null;
+ updateLabPhotoControls();
  monitoring=false;
  if (stream) stream.getTracks().forEach(track=>track.stop());
  stream=null;
@@ -1160,10 +1178,12 @@ function calibrateBoard() {
   return;
  }
  try {
+  if (labEmptyPhoto) labPhoto=labEmptyPhoto;
   const image=grabFrame();
   resetDetection(false);
   savedCalibration=calibration;
   calibrationPoints=[];
+  updateLabPhotoControls();
   frozen=image;
   $('cancelCalibration').hidden=false;
   $('calibrationHelp').textContent=
@@ -1184,7 +1204,8 @@ function cancelCalibration() {
   'Kalibracija je preklicana. Za zaznavanje jo moraš ponoviti.';
  if (calibration) {
   buildROI();
-  setDetectionMessage('Shrani prazno tarčo.','Prejšnja kalibracija je ohranjena.');
+  if (labEmptyPhoto) captureBaseline();
+  else setDetectionMessage('Shrani prazno tarčo.','Prejšnja kalibracija je ohranjena.');
  } else {
   setDetectionMessage('Najprej kalibriraj tarčo.','Označi štiri točke na obroču in sredino BULL-a.');
  }
@@ -1250,8 +1271,13 @@ function boardTap(event) {
     $('cancelCalibration').hidden=true;
     $('calibrationHelp').textContent=
      'Perspektivna kalibracija je shranjena. Ob premiku telefona jo ponovi. Zdaj shrani prazno tarčo.';
-    setDetectionMessage('Shrani prazno tarčo.','Na tarči ne sme biti nobene puščice.');
-    toast('Kalibracija shranjena.');
+    if (labEmptyPhoto) {
+     captureBaseline();
+     $('calibrationHelp').textContent='Prazna tarča je kalibrirana.';
+    } else {
+     setDetectionMessage('Shrani prazno tarčo.','Na tarči ne sme biti nobene puščice.');
+     toast('Kalibracija shranjena.');
+    }
    } catch(e) {
     calibrationPoints=[];
     $('calibrationHelp').textContent='Poskusi znova: najprej zgornja zunanja meja pri 20.';
@@ -1280,10 +1306,11 @@ function captureBaseline() {
   const image=grabFrame();
   invalidateFrames();
   baseline=grayFrame(image);
+  updateLabPhotoControls();
   waitingForEmpty=false;
   drawBoard();
   setDetectionMessage('Osnova prazne tarče je shranjena.',
-   labPhoto?'Naloži posnetek po metu ali odpri ročni pregled.':
+   labPhoto?'Naloži sliko z eno puščico. Primerjava se začne samodejno.':
    'Vrzi eno puščico in se umakni. Za samodejno spremljanje pritisni ZAČNI SPREMLJANJE.');
   if (!labMode) renderGame();
   toast('Osnova shranjena.');
@@ -1511,6 +1538,7 @@ function acceptDetection() {
 
 function discardDetection(acceptAsBaseline) {
  if (!pending) return;
+ $('labPrediction').hidden=true;
  if (acceptAsBaseline) baseline=pending.gray;
  pending=null;
  frozen=null;
@@ -1611,7 +1639,8 @@ function animationLoop(time) {
 
 document.addEventListener('visibilitychange',resetStability);
 
-$('labFile').addEventListener('change',loadLabPhoto);
+$('labEmptyFile').addEventListener('change',event=>loadLabPhoto(event,true));
+$('labDartFile').addEventListener('change',event=>loadLabPhoto(event,false));
 $('labActual').innerHTML='<option value="">Izberi dejanski zadetek</option>'+
  ['Brez meta','MISS','BULL','25',...['S','D','T'].flatMap(m=>
   Array.from({length:20},(_,i)=>m+(i+1)))].map(label=>'<option>'+label+'</option>').join('');
