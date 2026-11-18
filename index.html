@@ -169,7 +169,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
   <div class="field">
    <label>IMENA IGRALCEV</label><div class="player-inputs" id="playerInputs"></div>
   </div>
-  <div class="actions"><button onclick="startGame()">ZAČNI IGRO →</button></div>
+  <div class="actions"><button onclick="startGame()">ZAČNI IGRO →</button><button class="secondary" onclick="openLab()">TESTNA SOBA</button></div>
  </div>
  <div class="panel">
   <div class="grid">
@@ -184,7 +184,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 </section>
 
 <section id="game" class="screen">
- <div class="tabs">
+ <div class="tabs" id="gameTabs">
   <button class="tab active" data-tab="play" onclick="showTab('play')">IGRA</button>
   <button class="tab" data-tab="camera" onclick="showTab('camera')">KAMERA</button>
   <button class="tab" data-tab="stats" onclick="showTab('stats')">STATISTIKA</button>
@@ -221,6 +221,11 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
    <div class="eyebrow">Eksperimentalna prepoznava</div>
    <h2>Tarča v živo</h2>
    <p id="cameraTurn" class="note"></p>
+   <div id="labIntro" hidden>
+    <p class="note">Vklopi kamero ali naloži fotografijo prazne tarče. Kalibriraj jo in shrani osnovo. Nato vrzi eno puščico ali naloži sliko po metu iz istega položaja, brez povečave ali obrezovanja.</p>
+    <div class="field"><label for="labFile">FOTOGRAFIJA TARČE</label><input id="labFile" type="file" accept="image/*"></div>
+    <p class="note">Za pregled ene slike po kalibraciji shrani osnovo in pritisni PREVERI NASLEDNJI MET. S tapom preveriš polje pod prstom. Slike ostanejo v brskalniku.</p>
+   </div>
    <div class="camera-frame" id="cameraFrame">
     <div class="camera-placeholder" id="cameraPlaceholder">
      <div class="icon">🎯</div>
@@ -250,7 +255,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
    <div class="actions">
     <button onclick="captureBaseline()">② PRAZNA TARČA — SHRANI OSNOVO</button>
    </div>
-   <p class="note">
+   <p class="note" id="gameBaseline">
     Osnovo shrani samo, ko na tarči ni nobene puščice in je roka iz kadra.
     Po vsaki potrjeni potezi odstrani puščice in znova shrani prazno tarčo.
    </p>
@@ -270,21 +275,36 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
      </p>
      <div class="actions" id="endpointButtons"></div>
      <p id="selectedHit" aria-live="polite"></p>
-     <div class="actions">
+     <div class="actions" id="gameAccept">
       <button id="acceptHit" disabled onclick="acceptDetection()">DODAJ PREVERJEN ZADETEK</button>
       <button class="secondary" onclick="discardDetection(false)">PONOVI POSNETEK</button>
      </div>
-     <div class="actions">
+     <div class="actions" id="gameDiscard">
       <button class="secondary" onclick="discardDetection(true)">NI NOV MET — SPREJMI SLIKO KOT OSNOVO</button>
      </div>
-     <p class="note">
+     <p class="note" id="gameHint">
       Zadnji gumb uporabi le, če se je spremenila slika brez nove puščice.
       Če je puščica zgrešila tarčo ali odskočila, v igro ročno vnesi MISS.
      </p>
+     <div id="labReview" hidden>
+      <p id="labPrediction" aria-live="polite"></p>
+      <div class="field"><label for="labActual">DEJANSKI ZADETEK, PREVERJEN NA TARČI</label><select id="labActual"></select></div>
+      <div class="actions">
+       <button id="labRecord" disabled onclick="recordLab()">ZABELEŽI PREIZKUS</button>
+       <button class="secondary" onclick="discardDetection(false)">ZAVRZI POSNETEK</button>
+      </div>
+     </div>
     </div>
    </div>
+   <div class="panel" id="labResults" hidden>
+    <h3>Rezultati preizkusov</h3>
+    <p class="note">Predlog polja se izpiše, ko oba konca območja kažeta isto polje na tarči in sta dovolj daleč od žice. Preizkusi se hranijo do osvežitve strani. Za odboj ali zgrešen met izberi MISS. Za kontrolni posnetek izberi Brez meta.</p>
+    <p id="labSummary" role="status"></p>
+    <div id="labLog"></div>
+    <div class="actions"><button class="secondary" onclick="closeLab()">NA ZAČETEK</button></div>
+   </div>
    <div class="dart-row" id="cameraDarts"></div>
-   <div class="actions">
+   <div class="actions" id="cameraGameActions">
     <button id="cameraConfirm" disabled onclick="confirmTurn()">POTRDI POTEZO</button>
     <button class="secondary" onclick="showTab('play')">POPRAVI V IGRI</button>
    </div>
@@ -304,7 +324,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
   <div class="panel"><h2>Statistika igralcev</h2><div id="statsContent"></div></div>
   <div class="panel"><h2>Zadnje poteze</h2><div id="historyContent"></div></div>
  </div>
- <div class="actions">
+ <div class="actions" id="gameActions">
   <button class="secondary" onclick="backToSetup()">NOVA IGRA / NASTAVITVE</button>
   <button class="secondary" onclick="saveGame(true)">SHRANI IGRO</button>
  </div>
@@ -762,6 +782,7 @@ function restoreGame(raw) {
 }
 
 function resumeGame() {
+ if (labMode) closeLab();
  try {
   const raw=localStorage.getItem(SAVE_KEY);
   if (!raw) { toast('Ni shranjene igre.'); return; }
@@ -845,6 +866,8 @@ function nearWire(x,y) {
 
 let stream=null,cameraFacing='environment',cameraSession=0;
 let frameWidth=0,frameHeight=0;
+let labMode=false,labPhoto=null,labUpload=0;
+const labLog=[];
 let calibration=null,calibrationPoints=null,savedCalibration=null;
 let roi=null,roiCount=0;
 let baseline=null,previousGray=null,stableReference=null,stableFrames=0;
@@ -861,6 +884,112 @@ const calibrationLabels=[
 const workCanvas=document.createElement('canvas');
 const workContext=workCanvas.getContext('2d',{willReadFrequently:true});
 const boardContext=$('boardCanvas').getContext('2d');
+
+function setLabMode(active) {
+ labMode=active;
+ for (const id of ['gameTabs','gameActions','cameraTurn','cameraDarts','cameraGameActions',
+  'gameBaseline','gameAccept','gameDiscard','gameHint']) $(id).hidden=active;
+ for (const id of ['labIntro','labReview','labResults']) $(id).hidden=!active;
+}
+
+function openLab() {
+ stopCamera();
+ setLabMode(true);
+ showScreen('game');
+ showTab('camera');
+ renderLab();
+}
+
+function closeLab() {
+ stopCamera();
+ setLabMode(false);
+ showScreen('setup');
+}
+
+async function loadLabPhoto(event) {
+ const file=event.target.files[0];
+ event.target.value='';
+ if (!file || !labMode) return;
+ if (pending || calibrationPoints!==null) {
+  toast('Najprej dokončaj pregled ali kalibracijo.');
+  return;
+ }
+ const upload=++labUpload;
+ const url=URL.createObjectURL(file);
+ try {
+  const photo=new Image();
+  photo.src=url;
+  await photo.decode();
+  if (upload!==labUpload || !labMode) return;
+  if (pending || calibrationPoints!==null) {
+   toast('Najprej dokončaj pregled ali kalibracijo.');
+   return;
+  }
+  if (labPhoto && (labPhoto.naturalWidth!==photo.naturalWidth ||
+   labPhoto.naturalHeight!==photo.naturalHeight)) {
+   toast('Dimenzije slik se razlikujejo. Za nov kader pritisni IZKLOPI in ponovi kalibracijo.');
+   return;
+  }
+  if (!labPhoto) stopCamera();
+  labPhoto=photo;
+  configureFrame(photo.naturalWidth,photo.naturalHeight);
+  $('autoBtn').disabled=true;
+  $('cameraStatus').textContent='Fotografija je naložena.';
+  drawBoard();
+  if (baseline) manualDetection();
+  else if (!calibration) setDetectionMessage('Kalibriraj fotografijo.','Označi štiri točke na obroču in sredino BULL-a.');
+ } catch(e) {
+  if (upload===labUpload && labMode) toast('Fotografije ni bilo mogoče odpreti. Poskusi z JPG ali PNG.');
+ } finally {
+  URL.revokeObjectURL(url);
+ }
+}
+
+function showLabPrediction(endpoints,obstructed,changed) {
+ const points=endpoints.map(({x,y})=>{
+  const p=project(calibration,x,y);
+  return {label:boardHit(p.x,p.y).label,wire:nearWire(p.x,p.y)};
+ });
+ const label=points.length===2 && points[0].label!=='MISS' && points[0].label===points[1].label &&
+  points.every(p=>!p.wire) ? points[0].label : null;
+ const detail=points.map(p=>p.label+(p.wire?' (blizu žice)':'')).join(' / ');
+ const description=label ? 'Predlog: '+label : detail ? 'Dvoumno: '+detail :
+  obstructed ? 'Brez predloga: prevelika sprememba kadra' : 'Brez jasnega predloga';
+ pending.prediction={label,description,hasCandidate:points.length>0};
+ $('labPrediction').textContent=description+'. Spremenjenih pik v območju tarče: '+changed+' %.';
+ $('labActual').value='';
+ $('labRecord').disabled=true;
+}
+
+function renderLab() {
+ const throws=labLog.filter(row=>row.actual!=='Brez meta');
+ const correct=throws.filter(row=>row.result==='Ujemanje').length;
+ const alarms=labLog.filter(row=>row.result==='Lažni alarm').length;
+ const controls=labLog.length-throws.length;
+ $('labSummary').textContent=labLog.length ?
+  'Ujemanje '+correct+'/'+throws.length+' metov · lažni alarmi '+alarms+'/'+controls+' kontrol' :
+  'Še ni zabeleženih preizkusov.';
+ $('labLog').innerHTML=labLog.map(row=>
+  '<div class="history-row"><span>'+esc(row.actual)+' · '+esc(row.result)+
+  '</span><small>'+esc(row.source)+' · '+esc(row.description)+'</small></div>'
+ ).join('');
+}
+
+function recordLab() {
+ const actual=$('labActual').value;
+ if (!labMode || !pending?.prediction || !actual) return;
+ const {label,description,hasCandidate}=pending.prediction;
+ let result;
+ if (actual==='Brez meta') result=hasCandidate?'Lažni alarm':'Brez alarma';
+ else if (label) result=label===actual?'Ujemanje':'Napačno polje';
+ else result=hasCandidate?'Dvoumno':'Brez predloga';
+ labLog.unshift({actual,result,description,source:labPhoto?'Slika':'Kamera'});
+ discardDetection(!labPhoto);
+ setDetectionMessage('Preizkus je zabeležen.',labPhoto?
+  'Naloži naslednjo sliko za primerjavo z isto osnovo.':
+  'Vrzi naslednjo puščico ali shrani novo osnovo.');
+ renderLab();
+}
 
 function setDetectionMessage(title,text) {
  $('detectTitle').textContent=title;
@@ -895,7 +1024,7 @@ function resetDetection(notify=true) {
  );
  else setDetectionMessage('Najprej kalibriraj tarčo.','Kalibracija je vezana na položaj kamere.');
  if (game && !game.winner) renderGame();
- if (notify) toast('Osnova je ponastavljena. Vneseni meti so ohranjeni.');
+ if (notify) toast(labMode?'Osnova je ponastavljena.':'Osnova je ponastavljena. Vneseni meti so ohranjeni.');
 }
 
 function updateMonitorButton() {
@@ -931,15 +1060,7 @@ async function startCamera() {
   if (!video.videoWidth || !video.videoHeight)
    throw Error('Kamera še ni pripravljena. Poskusi ponovno.');
 
-  frameWidth=Math.min(960,video.videoWidth);
-  frameHeight=Math.round(frameWidth*video.videoHeight/video.videoWidth);
-  workCanvas.width=frameWidth;
-  workCanvas.height=frameHeight;
-  $('boardCanvas').width=frameWidth;
-  $('boardCanvas').height=frameHeight;
-  $('boardCanvas').hidden=false;
-  $('cameraFrame').style.aspectRatio=`${frameWidth} / ${frameHeight}`;
-  $('cameraPlaceholder').hidden=true;
+  configureFrame(video.videoWidth,video.videoHeight);
   $('cameraDot').classList.add('live');
   $('cameraStatus').textContent='Kamera deluje. Ob premiku telefona ponovi kalibracijo.';
   setDetectionMessage('Kalibriraj tarčo.','Označi štiri točke na obroču in sredino BULL-a.');
@@ -963,8 +1084,21 @@ async function startCamera() {
  }
 }
 
+function configureFrame(width,height) {
+ frameWidth=Math.min(960,width);
+ frameHeight=Math.round(frameWidth*height/width);
+ workCanvas.width=$('boardCanvas').width=frameWidth;
+ workCanvas.height=$('boardCanvas').height=frameHeight;
+ $('boardCanvas').hidden=false;
+ $('cameraFrame').style.aspectRatio=frameWidth+' / '+frameHeight;
+ $('cameraPlaceholder').hidden=true;
+}
+
 function stopCamera() {
  cameraSession++;
+ labUpload++;
+ labPhoto=null;
+ $('autoBtn').disabled=false;
  monitoring=false;
  if (stream) stream.getTracks().forEach(track=>track.stop());
  stream=null;
@@ -974,6 +1108,7 @@ function stopCamera() {
  $('cameraPlaceholder').hidden=false;
  $('cameraDot').classList.remove('live');
  $('cameraStatus').textContent='Kamera je izklopljena.';
+ setDetectionMessage('Najprej kalibriraj tarčo.','Kalibracija je vezana na kader.');
  calibration=null;
  calibrationPoints=null;
  savedCalibration=null;
@@ -995,6 +1130,10 @@ async function switchCamera() {
 }
 
 function grabFrame() {
+ if (labPhoto) {
+  workContext.drawImage(labPhoto,0,0,frameWidth,frameHeight);
+  return workContext.getImageData(0,0,frameWidth,frameHeight);
+ }
  const video=$('liveVideo');
  if (!stream || !video.videoWidth || video.readyState<2 || !frameWidth)
   throw Error('Kamera še ni pripravljena.');
@@ -1015,8 +1154,8 @@ function grayFrame(image) {
 }
 
 function calibrateBoard() {
- if (!stream) { toast('Najprej vklopi kamero.'); return; }
- if (game?.throws.length) {
+ if (!stream && !labPhoto) { toast('Najprej vklopi kamero ali naloži sliko.'); return; }
+ if (!labMode && game?.throws.length) {
   toast('Najprej dokončaj potezo in odstrani puščice.');
   return;
  }
@@ -1076,7 +1215,7 @@ function buildROI() {
 }
 
 function boardTap(event) {
- if (!stream || !frameWidth) return;
+ if ((!stream && !labPhoto) || !frameWidth) return;
  const rect=$('boardCanvas').getBoundingClientRect();
  if (!rect.width || !rect.height) return;
  const x=(event.clientX-rect.left)*frameWidth/rect.width;
@@ -1132,8 +1271,8 @@ function captureBaseline() {
   toast('Najprej dokončaj kalibracijo.');
   return;
  }
- if (!game || game.winner) { toast('Najprej začni igro.'); return; }
- if (game.throws.length) {
+ if (!labMode && (!game || game.winner)) { toast('Najprej začni igro.'); return; }
+ if (!labMode && game.throws.length) {
   toast('Prazno tarčo shrani med potezama. Trenutno potezo najprej dokončaj.');
   return;
  }
@@ -1144,26 +1283,28 @@ function captureBaseline() {
   waitingForEmpty=false;
   drawBoard();
   setDetectionMessage('Osnova prazne tarče je shranjena.',
+   labPhoto?'Naloži posnetek po metu ali odpri ročni pregled.':
    'Vrzi eno puščico in se umakni. Za samodejno spremljanje pritisni ZAČNI SPREMLJANJE.');
-  renderGame();
+  if (!labMode) renderGame();
   toast('Osnova shranjena.');
  } catch(e) { toast(e.message); }
 }
 
 function canObserve(notify=false) {
  let message='';
- if (!stream) message='Najprej vklopi kamero.';
+ if (!stream && !labPhoto) message='Najprej vklopi kamero ali naloži sliko.';
  else if (!calibration || calibrationPoints!==null) message='Najprej dokončaj kalibracijo.';
  else if (!baseline || waitingForEmpty) message='Najprej shrani prazno tarčo.';
- else if (!game || game.winner) message='Najprej začni igro.';
+ else if (!labMode && (!game || game.winner)) message='Najprej začni igro.';
  else if (pending) message='Najprej preveri odprti predlog.';
- else if (game.throws.length>=3 || currentState().terminal)
+ else if (!labMode && (game.throws.length>=3 || currentState().terminal))
   message='Preveri in potrdi trenutno potezo.';
  if (message && notify) toast(message);
  return !message;
 }
 
 function toggleMonitoring() {
+ if (labPhoto) return;
  if (monitoring) {
   monitoring=false;
   manualRequested=false;
@@ -1182,6 +1323,16 @@ function manualDetection() {
  if (!canObserve(true)) return;
  resetStability();
  manualRequested=true;
+ if (labPhoto) {
+  try {
+   const image=grabFrame();
+   inspectFrame(image,grayFrame(image));
+  } catch(e) {
+   manualRequested=false;
+   toast(e.message);
+  }
+  return;
+ }
  setDetectionMessage('Čakam na umirjeno sliko.',
   'Ne premikaj telefona in umakni roko iz kadra.');
 }
@@ -1274,13 +1425,14 @@ function componentsFrom(mask) {
 
 function inspectFrame(image,gray) {
  const diff=differenceMask(baseline,gray);
- if (diff.rawCount>roiCount*.12) {
+ const obstructed=diff.rawCount>roiCount*.12;
+ if (obstructed && !(labMode && manualRequested)) {
   manualRequested=false;
   setDetectionMessage('Preveč sprememb za predlog.',
    'Možni vzroki so roka, senca ali premik telefona. Če se je telefon premaknil, ponovi kalibracijo.');
   return false;
  }
- const components=diff.changed>=12 ? componentsFrom(diff.mask) : [];
+ const components=!obstructed && diff.changed>=12 ? componentsFrom(diff.mask) : [];
  const elongated=components.filter(c=>c.length>=10 && c.elongation>=3);
  // Več podolgovatih območij lahko pomeni senco ali premik že vrženih puščic.
  const proposal=elongated.length===1 && elongated[0].area>=diff.changed*.5
@@ -1288,7 +1440,8 @@ function inspectFrame(image,gray) {
  if (!proposal && !manualRequested) return false;
  const endpoints=proposal ? [proposal.first,proposal.last] : [];
 
- pending={image,gray,components:components.slice(0,8),endpoints,selected:null};
+ pending={gray,components:components.slice(0,8),endpoints,selected:null};
+ if (labMode) showLabPrediction(endpoints,obstructed,(100*diff.rawCount/roiCount).toFixed(1));
  frozen=image;
  manualRequested=false;
  $('candidatePanel').hidden=false;
@@ -1301,9 +1454,10 @@ function inspectFrame(image,gray) {
   setDetectionMessage('Kandidat za nov met.','Na sliki označi dejansko mesto vboda in preveri zadetek.');
  } else {
   setDetectionMessage('Ročni pregled slike.',
+   labMode?'Označi vidni vbod ali izberi dejanski zadetek za zapis preizkusa.':
    'Če vidiš vbod nove puščice, ga označi. Zgrešen met ali odboj vnesi kot MISS v zavihku Igra.');
  }
- renderGame();
+ if (!labMode) renderGame();
  drawBoard();
  return true;
 }
@@ -1330,7 +1484,7 @@ function selectPoint(x,y,source) {
 }
 
 function acceptDetection() {
- if (!pending?.selected || !game) return;
+ if (labMode || !pending?.selected || !game) return;
  const event=pending,hit=event.selected.hit;
  editIndex=null;
  pending=null;
@@ -1362,7 +1516,7 @@ function discardDetection(acceptAsBaseline) {
  frozen=null;
  resetStability();
  $('candidatePanel').hidden=true;
- renderGame();
+ if (!labMode) renderGame();
  drawBoard();
  setDetectionMessage(
   acceptAsBaseline?'Sprememba sprejeta brez novega meta.':'Predlog je zavrnjen.',
@@ -1388,6 +1542,7 @@ function drawBoard() {
  const ctx=boardContext;
  ctx.clearRect(0,0,frameWidth,frameHeight);
  if (frozen) ctx.putImageData(frozen,0,0);
+ else if (labPhoto) ctx.drawImage(labPhoto,0,0,frameWidth,frameHeight);
  ctx.lineWidth=Math.max(2,frameWidth/400);
  ctx.font=`bold ${Math.max(14,frameWidth/45)}px system-ui`;
 
@@ -1456,6 +1611,13 @@ function animationLoop(time) {
 
 document.addEventListener('visibilitychange',resetStability);
 
+$('labFile').addEventListener('change',loadLabPhoto);
+$('labActual').innerHTML='<option value="">Izberi dejanski zadetek</option>'+
+ ['Brez meta','MISS','BULL','25',...['S','D','T'].flatMap(m=>
+  Array.from({length:20},(_,i)=>m+(i+1)))].map(label=>'<option>'+label+'</option>').join('');
+$('labActual').addEventListener('change',()=>{
+ $('labRecord').disabled=!$('labActual').value;
+});
 renderPlayerInputs();
 try { $('resumeBtn').hidden=!localStorage.getItem(SAVE_KEY); } catch(e) {}
 requestAnimationFrame(animationLoop);
