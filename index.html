@@ -919,7 +919,7 @@ function updateLabPhotoControls() {
   $(id).hidden=photoMode;
  $('labPhotoHelp').textContent=ready ?
   'Kalibracija je končana. Naloži sliko z eno puščico.' :
-  photoMode ? 'Na prazni tarči označi robove dvojnega obroča in sredino BULL-a.' :
+  photoMode ? 'Na prazni tarči označi robove dvojnega obroča in sredino BULL-a. Če je barvni rob jasno viden, aplikacija popravi manjši odmik tapa.' :
   'Naloži prazno tarčo, nato na sliki označi robove dvojnega obroča in sredino BULL-a.';
 }
 
@@ -1473,6 +1473,39 @@ function buildROI() {
  }
 }
 
+// Use the colored double ring to correct small radial errors in photo taps.
+function snapDoubleRing(points,image) {
+ const [cx,cy]=points[4];
+ function colorAt(x,y,red) {
+  const i=Math.round(y)*image.width+Math.round(x);
+  if (x<0||y<0||Math.round(x)>=image.width||Math.round(y)>=image.height) return false;
+  const [r,g,b]=image.data.subarray(i*4,i*4+3);
+  return red ? r>g+28 && r>b+28 : g>r+17 && g>b+12;
+ }
+ return points.map(([x,y],i)=>{
+  if (i===4) return [x,y];
+  const radius=Math.hypot(x-cx,y-cy);
+  if (radius<50) return [x,y];
+  const ux=(x-cx)/radius,uy=(y-cy)/radius;
+  const search=Math.min(24,Math.round(radius*.085));
+  function colored(distance) {
+   let count=0;
+   for (const tangent of [-3,0,3]) {
+    if (colorAt(cx+ux*distance-uy*tangent,cy+uy*distance+ux*tangent,i%2===0)) count++;
+   }
+   return count>=2;
+  }
+  let edge=null;
+  for (let offset=-search;offset<=search;offset++) {
+   const d=radius+offset;
+   if ([1,2,3,4].every(step=>colored(d-step)) &&
+    [0,1,2].every(step=>!colored(d+step)) &&
+    (edge===null || Math.abs(offset)<Math.abs(edge-radius))) edge=d;
+  }
+  return edge===null ? [x,y] : [cx+ux*(edge-.5),cy+uy*(edge-.5)];
+ });
+}
+
 function boardTap(event) {
  if ((!stream && !labPhoto) || !frameWidth) return;
  const rect=$('boardCanvas').getBoundingClientRect();
@@ -1491,7 +1524,8 @@ function boardTap(event) {
    try {
     if (!validCalibration(calibrationPoints))
      throw Error('Točke niso veljavne. Označi jih v vrstnem redu 20 → 6 → 3 → 11.');
-    const next=homography(calibrationPoints);
+    const points=labEmptyPhoto && frozen ? snapDoubleRing(calibrationPoints,frozen) : calibrationPoints;
+    const next=homography(points);
     const bull=project(next,...calibrationPoints[4]);
     if (Math.hypot(bull.x,bull.y)>5)
      throw Error('Sredina odstopa za več kot 5 mm. Ponovi označevanje vseh petih točk.');
