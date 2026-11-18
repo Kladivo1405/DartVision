@@ -986,11 +986,15 @@ function alignPhoto(reference,current,width,height,board) {
   }
   return best;
  }
- const coarse=search(samples,0,0,12*Math.ceil(width*.25/12),
+ const center=samples.reduce(([x,y],[u,v])=>[x+u,y+v],[0,0]).map(v=>v/samples.length);
+ const [cx,cy]=center.map(v=>Math.round((v-8)/24)*24+8);
+ const scale=Math.round(Math.max(...samples.map(([x,y])=>Math.hypot(x-center[0],y-center[1])))/24)*24;
+ if (!scale) return null;
+ const grid=samples.filter(([x,y])=>Math.hypot(x-cx,y-cy)<scale*.75);
+ if (grid.length<36) return null;
+ const coarse=search(grid,0,0,12*Math.ceil(width*.25/12),
   12*Math.ceil(height*.25/12),12,65);
- const shift=search(samples,coarse.dx,coarse.dy,12,12,2,65);
- const [cx,cy]=samples.reduce(([x,y],[u,v])=>[x+u,y+v],[0,0]).map(v=>v/samples.length);
- const scale=Math.max(...samples.map(([x,y])=>Math.hypot(x-cx,y-cy)));
+ const shift=search(grid,coarse.dx,coarse.dy,12,12,2,65);
  const matches=[];
  for (const uy of [-.65,-.32,0,.32,.65]) for (const ux of [-.65,-.32,0,.32,.65]) {
   if (Math.hypot(ux,uy)>.8) continue;
@@ -1029,6 +1033,51 @@ function alignPhoto(reference,current,width,height,board) {
  if (inliers.length<8) return null;
  h=fit(inliers);
  if (!h) return null;
+ // Patch translations give a starting point. Refine against dense board
+ // texture so small changes in manual calibration do not shift the match.
+ const texture=[];
+ for (let y=Math.max(1,Math.floor(cy+shift.dy-scale));y<Math.min(height-1,cy+shift.dy+scale);y+=5) {
+  for (let x=Math.max(1,Math.floor(cx+shift.dx-scale));x<Math.min(width-1,cx+shift.dx+scale);x+=5) {
+   if (Math.hypot(x-cx-shift.dx,y-cy-shift.dy)>scale*.86) continue;
+   const i=y*width+x;
+   if (Math.abs(current[i+1]-current[i-1])+Math.abs(current[i+width]-current[i-width])>14)
+    texture.push([(x-cx)/scale,(y-cy)/scale,current[i]]);
+  }
+ }
+ function textureError() {
+  let total=0;
+  for (const [x,y,value] of texture) {
+   const z=h[6]*x+h[7]*y+1;
+   const u=(h[0]*x+h[1]*y+h[2])/z*scale+cx;
+   const v=(h[3]*x+h[4]*y+h[5])/z*scale+cy;
+   const i=Math.floor(u),j=Math.floor(v),dx=u-i,dy=v-j;
+   if (i<0||j<0||i+1>=width||j+1>=height) { total+=45; continue; }
+   const k=j*width+i;
+   const sample=(reference[k]*(1-dx)+reference[k+1]*dx)*(1-dy)+
+    (reference[k+width]*(1-dx)+reference[k+width+1]*dx)*dy;
+   total+=Math.min(45,Math.abs(sample-value));
+  }
+  return total;
+ }
+ if (texture.length>=100) {
+  let best=textureError();
+  for (const pixels of [3,1.5,.75,.375]) for (let pass=0;pass<3;pass++) {
+   let changed=false;
+   for (let i=0;i<8;i++) {
+    const initial=h[i],step=pixels/scale;
+    let selected=initial;
+    for (const direction of [-1,1]) {
+     h[i]=initial+direction*step;
+     const cost=textureError();
+     if (cost<best) { best=cost; selected=h[i]; }
+    }
+    h[i]=selected;
+    changed ||= selected!==initial;
+   }
+   if (!changed) break;
+  }
+ }
+
  function toReference(x,y) {
   const p=project(h,(x-cx)/scale,(y-cy)/scale);
   return {x:p.x*scale+cx,y:p.y*scale+cy};
@@ -1085,7 +1134,7 @@ function compareLabPhoto(image) {
 
 function photoDifference(reference,gray) {
  const offset=brightnessOffset(reference,gray);
- const mask=new Uint8Array(reference.length);
+ const mask=new Uint8Array(reference.length),shaftMask=new Uint8Array(reference.length);
  let rawCount=0,changed=0;
  for (let y=3;y<frameHeight-3;y++) for (let x=3;x<frameWidth-3;x++) {
   const i=y*frameWidth+x;
@@ -1102,12 +1151,13 @@ function photoDifference(reference,gray) {
    }
   }
   if (!different) continue;
-  for (let dy=-2;dy<=2;dy++) for (let dx=-2;dx<=2;dx++) {
+  for (let dy=-3;dy<=3;dy++) for (let dx=-3;dx<=3;dx++) {
    const j=i+dy*frameWidth+dx;
-   if (!mask[j]) { mask[j]=1; changed++; }
+   shaftMask[j]=1;
+   if (Math.abs(dx)<=2 && Math.abs(dy)<=2 && !mask[j]) { mask[j]=1; changed++; }
   }
  }
- return {mask,changed,rawCount};
+ return {mask,shaftMask,changed,rawCount};
 }
 
 function estimatePhotoTip(components) {
@@ -1119,9 +1169,9 @@ function estimatePhotoTip(components) {
    return {point,radius:Math.hypot(p.x,p.y)};
   }).sort((a,b)=>a.radius-b.radius);
   if (ends[0].radius<=170 && ends[1].radius>=175 && ends[1].radius-ends[0].radius>=22) {
-   // Move two pixels back from the dilated mask edge toward the shaft.
+   // Move three pixels back from the dilated mask edge toward the shaft.
    const a=ends[0].point,b=ends[1].point;
-   const t=2/Math.hypot(b.x-a.x,b.y-a.y);
+   const t=3/Math.hypot(b.x-a.x,b.y-a.y);
    candidates.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
   }
  }
@@ -1132,9 +1182,12 @@ function tipLabels(tip) {
  const p=boardPoint(tip.x,tip.y);
  // The projected end is approximate. Sample both sides of nearby wires.
  const labels=new Set([boardHit(p.x,p.y).label]);
+ const radius=Math.hypot(p.x,p.y)||1;
  for (let i=0;i<16;i++) {
   const angle=i*Math.PI/8;
-  labels.add(boardHit(p.x+5*Math.cos(angle),p.y+5*Math.sin(angle)).label);
+  const radial=12*Math.cos(angle),tangent=3*Math.sin(angle);
+  labels.add(boardHit(p.x+(p.x*radial-p.y*tangent)/radius,
+   p.y+(p.y*radial+p.x*tangent)/radius).label);
  }
  return [...labels];
 }
@@ -1651,7 +1704,7 @@ function inspectFrame(image,gray,photoDiff=null) {
  if (!proposal && !manualRequested) return false;
  const endpoints=proposal ? [proposal.first,proposal.last] : [];
 
- const tip=photoDiff && estimatePhotoTip(components);
+ const tip=photoDiff && !obstructed && estimatePhotoTip(componentsFrom(photoDiff.shaftMask));
  pending={gray,components:components.slice(0,8),endpoints,selected:null,tip};
  if (labMode) showLabPrediction(endpoints,obstructed,(100*diff.rawCount/roiCount).toFixed(1),tip);
  frozen=image;
