@@ -226,7 +226,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
     <div class="field"><label for="labEmptyFile">1. PRAZNA TARČA</label><input id="labEmptyFile" type="file" accept="image/*"></div>
     <p class="note" id="labPhotoHelp" role="status">Naloži prazno tarčo, nato na sliki označi robove dvojnega obroča in sredino BULL-a.</p>
     <div class="field"><label for="labDartFile">2. TARČA Z ENO PUŠČICO</label><input id="labDartFile" type="file" accept="image/*" disabled></div>
-    <p class="note">Obe fotografiji posnemi iz istega položaja, brez povečave ali obrezovanja. Predlog se izpiše samodejno po nalaganju druge slike. Slike ostanejo v brskalniku.</p>
+    <p class="note">Obe fotografiji posnemi iz čim bolj podobnega položaja. Aplikacija pred primerjavo poskusi poravnati tarčo. Slike ostanejo v brskalniku.</p>
     <p class="note">Za preizkus v živo uporabi gumbe za kamero pod sliko.</p>
    </div>
    <p id="labPrediction" role="status" hidden></p>
@@ -302,7 +302,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
    </div>
    <div class="panel" id="labResults" hidden>
     <h3>Rezultati preizkusov</h3>
-    <p class="note">Predlog polja se izpiše, ko oba konca območja kažeta isto polje na tarči in sta dovolj daleč od žice. Preizkusi se hranijo do osvežitve strani. Za odboj ali zgrešen met izberi MISS. Za kontrolni posnetek izberi Brez meta.</p>
+    <p class="note">Izpis temelji na spremembi slike. Če je ocenjena konica blizu žice, preveri možna polja na tarči. Preizkusi se hranijo do osvežitve strani. Za odboj ali zgrešen met izberi MISS. Za kontrolni posnetek izberi Brez meta.</p>
     <p id="labSummary" role="status"></p>
     <div id="labLog"></div>
     <div class="actions"><button class="secondary" onclick="closeLab()">NA ZAČETEK</button></div>
@@ -871,6 +871,7 @@ function nearWire(x,y) {
 let stream=null,cameraFacing='environment',cameraSession=0;
 let frameWidth=0,frameHeight=0;
 let labMode=false,labPhoto=null,labEmptyPhoto=null,labUpload=0;
+let labPhotoTransform=null;
 const labLog=[];
 let calibration=null,calibrationPoints=null,savedCalibration=null;
 let roi=null,roiCount=0;
@@ -949,9 +950,7 @@ async function loadLabPhoto(event, empty) {
   }
   labPhoto=photo;
   $('cameraStatus').textContent='Slika z metom je naložena.';
-  manualRequested=true;
-  const image=grabFrame();
-  inspectFrame(image,grayFrame(image));
+  compareLabPhoto(grabFrame());
  } catch(e) {
   if (upload!==labUpload || !labMode) return;
   manualRequested=false;
@@ -961,17 +960,201 @@ async function loadLabPhoto(event, empty) {
  }
 }
 
-function showLabPrediction(endpoints,obstructed,changed) {
+/* Match the board texture before comparing photos. Coordinates are normalized
+   relative to the reference board so the perspective fit stays well conditioned. */
+function alignPhoto(reference,current,width,height,board) {
+ const samples=[];
+ for (let y=8;y<height;y+=12) for (let x=8;x<width;x+=12) {
+  const p=project(board,x,y);
+  if (Math.hypot(p.x,p.y)<163) samples.push([x,y]);
+ }
+ if (samples.length<36) return null;
+ function error(points,dx,dy,limit) {
+  let sum=0;
+  for (const [x,y] of points) {
+   const u=x+dx,v=y+dy;
+   sum+=u<0||v<0||u>=width||v>=height ? limit :
+    Math.min(limit,Math.abs(reference[y*width+x]-current[v*width+u]));
+  }
+  return sum/points.length;
+ }
+ function search(points,cx,cy,rx,ry,step,limit) {
+  let best={dx:cx,dy:cy,error:error(points,cx,cy,limit)};
+  for (let dy=cy-ry;dy<=cy+ry;dy+=step) for (let dx=cx-rx;dx<=cx+rx;dx+=step) {
+   const cost=error(points,dx,dy,limit);
+   if (cost<best.error) best={dx,dy,error:cost};
+  }
+  return best;
+ }
+ const coarse=search(samples,0,0,12*Math.ceil(width*.25/12),
+  12*Math.ceil(height*.25/12),12,65);
+ const shift=search(samples,coarse.dx,coarse.dy,12,12,2,65);
+ const [cx,cy]=samples.reduce(([x,y],[u,v])=>[x+u,y+v],[0,0]).map(v=>v/samples.length);
+ const scale=Math.max(...samples.map(([x,y])=>Math.hypot(x-cx,y-cy)));
+ const matches=[];
+ for (const uy of [-.65,-.32,0,.32,.65]) for (const ux of [-.65,-.32,0,.32,.65]) {
+  if (Math.hypot(ux,uy)>.8) continue;
+  const x=Math.round(cx+ux*scale),y=Math.round(cy+uy*scale);
+  const radius=Math.max(8,Math.round(scale*.14));
+  const patch=[];
+  let low=255,high=0;
+  for (let j=y-radius;j<=y+radius;j+=3) for (let i=x-radius;i<=x+radius;i+=3) {
+   if (i<0||i>=width||j<0||j>=height) continue;
+   patch.push([i,j]);
+   const v=reference[j*width+i];
+   low=Math.min(low,v);high=Math.max(high,v);
+  }
+  if (high-low<60) continue;
+  const range=2*Math.max(5,Math.round(scale*.07));
+  const local=search(patch,shift.dx,shift.dy,range,range,2,90);
+  const best=search(patch,local.dx,local.dy,2,2,1,90);
+  if (best.error<24) matches.push([
+   (x+best.dx-cx)/scale,(y+best.dy-cy)/scale,(x-cx)/scale,(y-cy)/scale
+  ]);
+ }
+ function fit(points) {
+  const normal=Array.from({length:8},()=>Array(9).fill(0));
+  for (const [x,y,u,v] of points) for (const row of [
+   [x,y,1,0,0,0,-u*x,-u*y,u],[0,0,0,x,y,1,-v*x,-v*y,v]
+  ]) for (let i=0;i<8;i++) for (let j=0;j<9;j++) normal[i][j]+=row[i]*row[j];
+  try { return [...solve(normal),1]; } catch(e) { return null; }
+ }
+ if (matches.length<8) return null;
+ let h=fit(matches);
+ if (!h) return null;
+ const inliers=matches.filter(([x,y,u,v])=>{
+  const p=project(h,x,y);
+  return Math.hypot(p.x-u,p.y-v)*scale<4;
+ });
+ if (inliers.length<8) return null;
+ h=fit(inliers);
+ if (!h) return null;
+ function toReference(x,y) {
+  const p=project(h,(x-cx)/scale,(y-cy)/scale);
+  return {x:p.x*scale+cx,y:p.y*scale+cy};
+ }
+ // Confirm that the estimated warp matches the texture throughout the board.
+ let valid=0;
+ for (const [x,y] of samples) {
+  // Check in the destination frame using the coarse shift as a sample offset.
+  const dx=x+shift.dx,dy=y+shift.dy;
+  if (dx<0||dx>=width||dy<0||dy>=height) continue;
+  const p=toReference(dx,dy),u=Math.round(p.x),v=Math.round(p.y);
+  if (u>=0&&u<width&&v>=0&&v<height &&
+   Math.abs(reference[v*width+u]-current[dy*width+dx])<32) valid++;
+ }
+ return valid/samples.length>=.78 ? toReference : null;
+}
+
+function warpReference(reference,width,height,toReference) {
+ const warped=new Uint8Array(reference.length);
+ for (let y=0;y<height;y++) for (let x=0;x<width;x++) {
+  const p=toReference(x,y);
+  const u=Math.floor(p.x),v=Math.floor(p.y);
+  if (u<0||v<0||u>=width-1||v>=height-1) continue;
+  const i=v*width+u,dx=p.x-u,dy=p.y-v;
+  warped[y*width+x]=Math.round(
+   (reference[i]*(1-dx)+reference[i+1]*dx)*(1-dy)+
+   (reference[i+width]*(1-dx)+reference[i+width+1]*dx)*dy
+  );
+ }
+ return warped;
+}
+
+function boardPoint(x,y) {
+ const p=labPhotoTransform ? labPhotoTransform(x,y) : {x,y};
+ return project(calibration,p.x,p.y);
+}
+
+function compareLabPhoto(image) {
+ const gray=grayFrame(image);
+ labPhotoTransform=alignPhoto(baseline,gray,frameWidth,frameHeight,calibration);
+ if (!labPhotoTransform) {
+  if (pending) discardDetection(false);
+  frozen=image;
+  drawBoard();
+  $('labPrediction').hidden=false;
+  $('labPrediction').textContent='Tarč ni bilo mogoče dovolj dobro poravnati. Poskusi s posnetkom iz podobnejšega položaja.';
+  return;
+ }
+ buildROI();
+ const reference=warpReference(baseline,frameWidth,frameHeight,labPhotoTransform);
+ manualRequested=true;
+ inspectFrame(image,gray,photoDifference(reference,gray));
+}
+
+function photoDifference(reference,gray) {
+ const offset=brightnessOffset(reference,gray);
+ const mask=new Uint8Array(reference.length);
+ let rawCount=0,changed=0;
+ for (let y=3;y<frameHeight-3;y++) for (let x=3;x<frameWidth-3;x++) {
+  const i=y*frameWidth+x;
+  if (!roi[i]) continue;
+  const value=gray[i]-offset;
+  if (Math.abs(reference[i]-value)<=24) continue;
+  rawCount++;
+  // Suppress edges explainable by a small registration error.
+  let different=true;
+  for (let dy=-3;dy<=3 && different;dy++) for (let dx=-3;dx<=3;dx++) {
+   if (Math.abs(reference[i+dy*frameWidth+dx]-value)<=24) {
+    different=false;
+    break;
+   }
+  }
+  if (!different) continue;
+  for (let dy=-2;dy<=2;dy++) for (let dx=-2;dx<=2;dx++) {
+   const j=i+dy*frameWidth+dx;
+   if (!mask[j]) { mask[j]=1; changed++; }
+  }
+ }
+ return {mask,changed,rawCount};
+}
+
+function estimatePhotoTip(components) {
+ const candidates=[];
+ for (const c of components) {
+  if (c.elongation<5 || c.length<20) continue;
+  const ends=[c.first,c.last].map(point=>{
+   const p=boardPoint(point.x,point.y);
+   return {point,radius:Math.hypot(p.x,p.y)};
+  }).sort((a,b)=>a.radius-b.radius);
+  if (ends[0].radius<=170 && ends[1].radius>=175 && ends[1].radius-ends[0].radius>=22) {
+   // Move two pixels back from the dilated mask edge toward the shaft.
+   const a=ends[0].point,b=ends[1].point;
+   const t=2/Math.hypot(b.x-a.x,b.y-a.y);
+   candidates.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
+  }
+ }
+ return candidates.length===1 ? candidates[0] : null;
+}
+
+function tipLabels(tip) {
+ const p=boardPoint(tip.x,tip.y);
+ // The projected end is approximate. Sample both sides of nearby wires.
+ const labels=new Set([boardHit(p.x,p.y).label]);
+ for (let i=0;i<16;i++) {
+  const angle=i*Math.PI/8;
+  labels.add(boardHit(p.x+5*Math.cos(angle),p.y+5*Math.sin(angle)).label);
+ }
+ return [...labels];
+}
+
+function showLabPrediction(endpoints,obstructed,changed,tip) {
  const points=endpoints.map(({x,y})=>{
-  const p=project(calibration,x,y);
+  const p=boardPoint(x,y);
   return {label:boardHit(p.x,p.y).label,wire:nearWire(p.x,p.y)};
  });
- const label=points.length===2 && points[0].label!=='MISS' && points[0].label===points[1].label &&
+ let label=points.length===2 && points[0].label!=='MISS' && points[0].label===points[1].label &&
   points.every(p=>!p.wire) ? points[0].label : null;
  const detail=points.map(p=>p.label+(p.wire?' (blizu žice)':'')).join(' / ');
- const description=label ? 'Predlog: '+label : detail ? 'Dvoumno: '+detail :
+ let description=label ? 'Predlog: '+label : detail ? 'Dvoumno: '+detail :
   obstructed ? 'Brez predloga: prevelika sprememba kadra' : 'Brez jasnega predloga';
- pending.prediction={label,description,hasCandidate:points.length>0};
+ if (tip) {
+  const labels=tipLabels(tip);
+  label=labels.length===1 && labels[0]!=='MISS' ? labels[0] : null;
+  description=label ? 'Ocenjena konica: '+label : 'Ocenjena konica ob meji: '+labels.join(' / ');
+ }
+ pending.prediction={label,description,hasCandidate:points.length>0 || !!tip};
  $('labPrediction').hidden=false;
  $('labPrediction').textContent=description+'. Spremenjenih pik v območju tarče: '+changed+' %.';
  $('labActual').value='';
@@ -1116,6 +1299,7 @@ function stopCamera() {
  cameraSession++;
  labUpload++;
  labPhoto=labEmptyPhoto=null;
+ labPhotoTransform=null;
  updateLabPhotoControls();
  monitoring=false;
  if (stream) stream.getTracks().forEach(track=>track.stop());
@@ -1179,6 +1363,7 @@ function calibrateBoard() {
  }
  try {
   if (labEmptyPhoto) labPhoto=labEmptyPhoto;
+  labPhotoTransform=null;
   const image=grabFrame();
   resetDetection(false);
   savedCalibration=calibration;
@@ -1227,7 +1412,7 @@ function buildROI() {
  roi=new Uint8Array(frameWidth*frameHeight);
  roiCount=0;
  for (let y=0;y<frameHeight;y++) for (let x=0;x<frameWidth;x++) {
-  const p=project(calibration,x,y);
+  const p=boardPoint(x,y);
   if (Math.hypot(p.x,p.y)<=210) {
    roi[y*frameWidth+x]=1;
    roiCount++;
@@ -1352,8 +1537,7 @@ function manualDetection() {
  manualRequested=true;
  if (labPhoto) {
   try {
-   const image=grabFrame();
-   inspectFrame(image,grayFrame(image));
+   compareLabPhoto(grabFrame());
   } catch(e) {
    manualRequested=false;
    toast(e.message);
@@ -1450,8 +1634,8 @@ function componentsFrom(mask) {
  return components.sort((a,b)=>b.length-a.length);
 }
 
-function inspectFrame(image,gray) {
- const diff=differenceMask(baseline,gray);
+function inspectFrame(image,gray,photoDiff=null) {
+ const diff=photoDiff || differenceMask(baseline,gray);
  const obstructed=diff.rawCount>roiCount*.12;
  if (obstructed && !(labMode && manualRequested)) {
   manualRequested=false;
@@ -1467,8 +1651,9 @@ function inspectFrame(image,gray) {
  if (!proposal && !manualRequested) return false;
  const endpoints=proposal ? [proposal.first,proposal.last] : [];
 
- pending={gray,components:components.slice(0,8),endpoints,selected:null};
- if (labMode) showLabPrediction(endpoints,obstructed,(100*diff.rawCount/roiCount).toFixed(1));
+ const tip=photoDiff && estimatePhotoTip(components);
+ pending={gray,components:components.slice(0,8),endpoints,selected:null,tip};
+ if (labMode) showLabPrediction(endpoints,obstructed,(100*diff.rawCount/roiCount).toFixed(1),tip);
  frozen=image;
  manualRequested=false;
  $('candidatePanel').hidden=false;
@@ -1477,7 +1662,7 @@ function inspectFrame(image,gray) {
  $('endpointButtons').innerHTML=endpoints.map((_,i)=>
   `<button class="secondary tiny" onclick="chooseEndpoint(${i})">KONEC OBMOČJA ${i+1}</button>`
  ).join('');
- if (proposal) {
+ if (proposal || tip) {
   setDetectionMessage('Kandidat za nov met.','Na sliki označi dejansko mesto vboda in preveri zadetek.');
  } else {
   setDetectionMessage('Ročni pregled slike.',
@@ -1496,7 +1681,7 @@ function chooseEndpoint(index) {
 
 function selectPoint(x,y,source) {
  if (!pending || !calibration) return;
- const board=project(calibration,x,y);
+ const board=boardPoint(x,y);
  if (!Number.isFinite(board.x) || !Number.isFinite(board.y)) {
   toast('Točka ni veljavna.');
   return;
@@ -1590,6 +1775,7 @@ function drawBoard() {
   for (const c of pending.components)
    ctx.strokeRect(c.minX,c.minY,c.maxX-c.minX+1,c.maxY-c.minY+1);
   pending.endpoints.forEach((point,i)=>dot(point.x,point.y,String(i+1),'#f2c66d'));
+  if (pending.tip) dot(pending.tip.x,pending.tip.y,'Vbod?','#f2c66d');
  }
  if (pending.selected)
   dot(pending.selected.x,pending.selected.y,pending.selected.hit.label,'#a6f06b');
